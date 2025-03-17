@@ -1,4 +1,4 @@
-﻿namespace MsaCookingApp.Contracts.Shared.Abstractions.Services;
+﻿namespace TaskVault.Contracts.Shared.Abstractions.Services;
 
 public interface IExceptionHandlingService
 {

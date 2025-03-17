@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 
-namespace MsaCookingApp.Api.Helpers;
+namespace TaskVault.Api.Helpers;
 
 public class AuthorizationHelper
 {

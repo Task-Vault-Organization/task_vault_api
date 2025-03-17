@@ -7,11 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="Features\Profile\Abstractions\Repositories\" />
-      <Folder Include="Features\User\DTOs\" />
-    </ItemGroup>
-
-    <ItemGroup>
+      <PackageReference Include="AWSSDK.S3" Version="4.0.0-preview.10" />
       <PackageReference Include="Firebase.Auth" Version="1.0.0" />
       <PackageReference Include="FirebaseStorage.net" Version="1.0.3" />
       <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />

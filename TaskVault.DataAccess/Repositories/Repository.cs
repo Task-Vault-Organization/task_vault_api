@@ -1,10 +1,10 @@
 ﻿using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using MsaCookingApp.DataAccess.Context;
-using MsaCookingApp.DataAccess.Repositories.Abstractions;
+using TaskVault.DataAccess.Context;
+using TaskVault.DataAccess.Repositories.Abstractions;
 
-namespace MsaCookingApp.DataAccess.Repositories;
+namespace TaskVault.DataAccess.Repositories;
 
 public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
     {

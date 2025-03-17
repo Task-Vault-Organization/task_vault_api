@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MsaCookingApp.DataAccess.Entities;
+using TaskVault.DataAccess.Entities;
 
-namespace MsaCookingApp.DataAccess.Context;
+namespace TaskVault.DataAccess.Context;
 
 public class MsaCookingAppDevContext : DbContext
 {

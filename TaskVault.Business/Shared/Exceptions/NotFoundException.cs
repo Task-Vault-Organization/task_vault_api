@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace MsaCookingApp.Business.Shared.Exceptions;
+namespace TaskVault.Business.Shared.Exceptions;
 
 public class NotFoundException(string message) : ServiceException(StatusCodes.Status404NotFound, message) { }

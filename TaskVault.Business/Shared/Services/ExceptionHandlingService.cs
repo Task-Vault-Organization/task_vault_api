@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
-using MsaCookingApp.Contracts.Shared.Abstractions.Services;
+using TaskVault.Contracts.Shared.Abstractions.Services;
 
-namespace MsaCookingApp.Business.Shared.Services;
+namespace TaskVault.Business.Shared.Services;
 
 public class ExceptionHandlingService : IExceptionHandlingService
 {

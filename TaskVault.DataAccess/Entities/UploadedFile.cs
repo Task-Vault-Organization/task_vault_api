@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace MsaCookingApp.DataAccess.Entities;
+namespace TaskVault.DataAccess.Entities;
 
 public class UploadedFile
 {

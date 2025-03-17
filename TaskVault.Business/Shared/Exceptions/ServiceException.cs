@@ -1,4 +1,4 @@
-﻿namespace MsaCookingApp.Business.Shared.Exceptions;
+﻿namespace TaskVault.Business.Shared.Exceptions;
 
 public class ServiceException(int statusCode, string errorMessage) : Exception
 {

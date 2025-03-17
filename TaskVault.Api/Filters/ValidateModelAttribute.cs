@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace MsaCookingApp.Api.Filters;
+namespace TaskVault.Api.Filters;
 
 public class ValidateModelAttribute : ActionFilterAttribute
 {

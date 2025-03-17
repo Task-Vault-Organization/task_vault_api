@@ -1,4 +1,4 @@
-﻿namespace MsaCookingApp.Contracts.Features;
+﻿namespace TaskVault.Contracts.Features;
 
 public interface IUploadFileService
 {

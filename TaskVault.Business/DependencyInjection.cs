@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using MsaCookingApp.Business.Features;
-using MsaCookingApp.Business.Shared.Services;
-using MsaCookingApp.Contracts.Features;
-using MsaCookingApp.Contracts.Shared.Abstractions.Services;
+using TaskVault.Business.Features.FileStorage.Services;
+using TaskVault.Business.Shared.Services;
+using TaskVault.Contracts.Features.FileStorage;
+using TaskVault.Contracts.Shared.Abstractions.Services;
 
-namespace MsaCookingApp.Business;
+namespace TaskVault.Business;
 
 public static class DependencyInjection
 {
@@ -12,7 +12,7 @@ public static class DependencyInjection
     {
         services.AddAutoMapper(typeof(DependencyInjection));
         services.AddTransient<IExceptionHandlingService, ExceptionHandlingService>();
-        services.AddTransient<IUploadFileService, UploadFileService>();
+        services.AddTransient<IFileStorageService, FileStorageService>();
         return services;
     }
 }

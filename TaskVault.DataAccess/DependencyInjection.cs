@@ -1,12 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MsaCookingApp.DataAccess.Context;
-using MsaCookingApp.DataAccess.Entities;
-using MsaCookingApp.DataAccess.Repositories;
-using MsaCookingApp.DataAccess.Repositories.Abstractions;
+using TaskVault.DataAccess.Context;
+using TaskVault.DataAccess.Entities;
+using TaskVault.DataAccess.Repositories;
+using TaskVault.DataAccess.Repositories.Abstractions;
 
-namespace MsaCookingApp.DataAccess;
+namespace TaskVault.DataAccess;
 
 public static class DependencyInjection
 {

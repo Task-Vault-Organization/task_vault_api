@@ -1,4 +1,4 @@
-﻿namespace MsaCookingApp.Api;
+﻿namespace TaskVault.Api;
 
 public static class WebApplicationExtensions
 {

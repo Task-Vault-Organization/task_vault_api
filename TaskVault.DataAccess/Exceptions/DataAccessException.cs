@@ -1,4 +1,4 @@
-﻿namespace MsaCookingApp.DataAccess.Exceptions;
+﻿namespace TaskVault.DataAccess.Exceptions;
 
 public class DataAccessException(string errorMessage) : Exception
 {

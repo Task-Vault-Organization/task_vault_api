@@ -2,10 +2,10 @@
 
 namespace TaskVault.DataAccess.Entities;
 
-public class UploadedFile
+public class TaskStatus
 {
     [Key]
-    public Guid Id { get; set; }
+    public int Id { get; set; }
 
-    public string Name { get; set; }
+    public required string Name { get; set; }
 }

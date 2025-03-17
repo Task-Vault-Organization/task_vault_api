@@ -8,10 +8,10 @@ namespace TaskVault.DataAccess.Repositories;
 
 public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
     {
-        protected readonly MsaCookingAppDevContext Context;
+        protected readonly TaskVaultDevContext Context;
         protected readonly ILogger Logger;
 
-        public Repository(MsaCookingAppDevContext context, ILogger<Repository<TEntity>> logger)
+        public Repository(TaskVaultDevContext context, ILogger<Repository<TEntity>> logger)
         {
             Context = context;
             Logger = logger;

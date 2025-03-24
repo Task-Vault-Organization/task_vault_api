@@ -10,10 +10,12 @@ namespace TaskVault.Api.Controllers;
 public class FileStorageController : Controller
 {
     private readonly IFileStorageService _fileStorageService;
+    private readonly IFileService _fileService;
 
-    public FileStorageController(IFileStorageService fileStorageService)
+    public FileStorageController(IFileStorageService fileStorageService, IFileService fileService)
     {
         _fileStorageService = fileStorageService;
+        _fileService = fileService;
     }
     
     [HttpPost("upload")]
@@ -29,5 +31,33 @@ public class FileStorageController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         var downloadFileResponse = await _fileStorageService.DownloadFileAsync(userEmail, fileId);
         return File(downloadFileResponse.FileMemoryStream.ToArray(), downloadFileResponse.ContentType ?? "", fileId.ToString());
+    }
+    
+    [HttpGet("uploaded")]
+    public async Task<IActionResult> GetAllUploadedFilesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllUploadedFilesAsync(userEmail));
+    }
+    
+    [HttpGet("shared")]
+    public async Task<IActionResult> GetAllSharedFilesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllSharedFilesAsync(userEmail));
+    }
+    
+    [HttpGet("{fileID}")]
+    public async Task<IActionResult> GetFileAsync(Guid fileId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetFileAsync(userEmail, fileId));
+    }
+    
+    [HttpDelete("{fileID}")]
+    public async Task<IActionResult> DeleteFileAsync(Guid fileId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.DeleteUploadedFileAsync(userEmail, fileId));
     }
 }

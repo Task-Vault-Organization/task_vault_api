@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddTransient<IRepository<User>, Repository<User>>();
         services.AddTransient<IRepository<File>, FileRepository>();
         services.AddTransient<IRepository<FileType>, Repository<FileType>>();
+        services.AddTransient<IFileRepository, FileRepository>();
         
         return services;
     }

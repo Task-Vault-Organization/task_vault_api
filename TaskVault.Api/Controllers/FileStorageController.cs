@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using TaskVault.Contracts.Features.FileStorage;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using TaskVault.Api.Helpers;
+using TaskVault.Contracts.Features.FileStorage.Abstractions;
 
 namespace TaskVault.Api.Controllers;
 
+[Route("api/file-storage")]
+[Authorize]
 public class FileStorageController : Controller
 {
     private readonly IFileStorageService _fileStorageService;
@@ -15,13 +19,15 @@ public class FileStorageController : Controller
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFileAsync(IFormFile file)
     {
-        return Ok(await _fileStorageService.UploadFileAsync(file));
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileStorageService.UploadFileAsync(userEmail, file));
     }
 
-    [HttpGet("download/{fileName}")]
-    public async Task<IActionResult> DownloadFileAsync(string fileName)
+    [HttpGet("download/{fileId}")]
+    public async Task<IActionResult> DownloadFileAsync(Guid fileId)
     {
-        var downloadFileResponse = await _fileStorageService.DownloadFileAsync(fileName);
-        return File(downloadFileResponse.FileMemoryStream.ToArray(), downloadFileResponse.ContentType ?? "", fileName);
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        var downloadFileResponse = await _fileStorageService.DownloadFileAsync(userEmail, fileId);
+        return File(downloadFileResponse.FileMemoryStream.ToArray(), downloadFileResponse.ContentType ?? "", fileId.ToString());
     }
 }

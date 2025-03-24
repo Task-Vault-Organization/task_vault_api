@@ -6,6 +6,6 @@ public class AuthorizationHelper
 {
     public static string GetUserEmailFromClaims(ClaimsPrincipal user)
     {
-        return user.Claims.ElementAt(1).Value;
+        return user.Claims.ElementAt(0).Value;
     }
 }

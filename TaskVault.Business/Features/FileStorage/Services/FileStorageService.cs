@@ -2,52 +2,103 @@
 using Amazon.S3.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Business.Shared.Options;
-using TaskVault.Contracts.Features.FileStorage;
+using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Dtos;
+using TaskVault.DataAccess.Entities;
+using TaskVault.DataAccess.Repositories.Abstractions;
+using File = TaskVault.DataAccess.Entities.File;
 
 namespace TaskVault.Business.Features.FileStorage.Services;
 
 public class FileStorageService : IFileStorageService
 {
     private readonly IExceptionHandlingService _exceptionHandlingService;
+    private readonly IRepository<User> _userRepository;
+    private readonly IRepository<File> _fileRepository;
+    private IRepository<FileType> _fileTypeRepository;
     private readonly IAmazonS3 _s3Client;
     private readonly AwsOptions _awsOptions;
 
-    public FileStorageService(IExceptionHandlingService exceptionHandlingService, IAmazonS3 s3Client, IOptions<AwsOptions> awsOptions)
+    public FileStorageService(IExceptionHandlingService exceptionHandlingService, IAmazonS3 s3Client, IOptions<AwsOptions> awsOptions, IRepository<User> userRepository, IRepository<File> fileRepository, IRepository<FileType> fileTypeRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _s3Client = s3Client;
+        _userRepository = userRepository;
+        _fileRepository = fileRepository;
+        _fileTypeRepository = fileTypeRepository;
         _awsOptions = awsOptions.Value;
     }
 
-    public async Task<BaseApiResponse> UploadFileAsync(IFormFile file)
+    public async Task<BaseApiResponse> UploadFileAsync(string userEmail, IFormFile file)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var fileId = Guid.NewGuid();
+
             using var stream = file.OpenReadStream();
             var request = new PutObjectRequest
             {
                 BucketName = _awsOptions.BucketName,
-                Key = file.FileName,
+                Key = fileId.ToString(),
                 InputStream = stream,
                 ContentType = file.ContentType
             };
 
             await _s3Client.PutObjectAsync(request);
-            return BaseApiResponse.Create("Successfully uploaded file");
+
+            var fileType = (await _fileTypeRepository.FindAsync((ft) => ft.Name == file.ContentType))
+                .FirstOrDefault();
+
+            if (fileType == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "File type not found");
+            }
+
+            var newFile = File.Create(fileId, file.Length, file.FileName, foundUser.Id, DateTime.UtcNow,
+                fileType.Id);
+            var owners = new List<User>() { foundUser };
+            newFile.Owners = owners;
+
+            await _fileRepository.AddAsync(newFile);
+
+            return BaseApiResponse.Create("Successfully uploaded file and saved metadata");
         }, "Error when uploading file");
     }
 
-    public async Task<BaseApiFileResponse> DownloadFileAsync(string fileName)
+    public async Task<BaseApiFileResponse> DownloadFileAsync(string userEmail, Guid fileId)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var foundDatabaseFIle = await _fileRepository.GetByIdAsync(fileId);
+            if (foundDatabaseFIle == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "File not found");
+            }
+
+            if (foundDatabaseFIle.Owners?.FirstOrDefault(u => u.Id == foundUser.Id) == null)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden, "Forbidden access to file");
+            }
+            
             var request = new GetObjectRequest
             {
                 BucketName = _awsOptions.BucketName,
-                Key = fileName
+                Key = fileId.ToString()
             };
 
             using var response = await _s3Client.GetObjectAsync(request);

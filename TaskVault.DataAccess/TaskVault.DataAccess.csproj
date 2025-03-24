@@ -24,8 +24,4 @@
       <Folder Include="Migrations\" />
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\TaskVault.Contracts\TaskVault.Contracts.csproj" />
-    </ItemGroup>
-
 </Project>

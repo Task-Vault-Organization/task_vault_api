@@ -39,8 +39,8 @@ public class TaskVaultDevContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
         
         modelBuilder.Entity<File>()
-            .HasMany<User>()
-            .WithMany()
+            .HasMany<User>(f => f.Owners)
+            .WithMany(u => u.Files)
             .UsingEntity<Dictionary<string, object>>( 
                 "FileOwner", 
                 j => j.HasOne<User>().WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Cascade),

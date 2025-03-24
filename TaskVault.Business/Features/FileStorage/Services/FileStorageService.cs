@@ -17,12 +17,12 @@ public class FileStorageService : IFileStorageService
 {
     private readonly IExceptionHandlingService _exceptionHandlingService;
     private readonly IRepository<User> _userRepository;
-    private readonly IRepository<File> _fileRepository;
+    private readonly IFileRepository _fileRepository;
     private IRepository<FileType> _fileTypeRepository;
     private readonly IAmazonS3 _s3Client;
     private readonly AwsOptions _awsOptions;
 
-    public FileStorageService(IExceptionHandlingService exceptionHandlingService, IAmazonS3 s3Client, IOptions<AwsOptions> awsOptions, IRepository<User> userRepository, IRepository<File> fileRepository, IRepository<FileType> fileTypeRepository)
+    public FileStorageService(IExceptionHandlingService exceptionHandlingService, IAmazonS3 s3Client, IOptions<AwsOptions> awsOptions, IRepository<User> userRepository, IFileRepository fileRepository, IRepository<FileType> fileTypeRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _s3Client = s3Client;

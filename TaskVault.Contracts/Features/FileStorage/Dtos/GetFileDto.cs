@@ -1,4 +1,5 @@
-﻿using TaskVault.DataAccess.Entities;
+﻿using TaskVault.Contracts.Shared.Dtos;
+using TaskVault.DataAccess.Entities;
 
 namespace TaskVault.Contracts.Features.FileStorage.Dtos;
 
@@ -16,5 +17,9 @@ public class GetFileDto
 
     public required int FileTypeId { get; set; }
     
-    public virtual FileType? FileType { get; set; }
+    public FileType? FileType { get; set; }
+    
+    public GetUserDto? Uploader { get; set; }
+    
+    public IEnumerable<GetUserDto>? Owners { get; set; }
 }

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddTransient<IExceptionHandlingService, ExceptionHandlingService>();
         services.AddTransient<IFileStorageService, FileStorageService>();
         services.AddTransient<IAuthenticationService, AuthenticationService>();
+        services.AddTransient<IFileService, FileService>();
         return services;
     }
 }

@@ -23,7 +23,7 @@ public class File
     public virtual FileType? FileType { get; set; }
 
     public virtual IEnumerable<User>? Owners { get; set; }
-
+    
     public static File Create(Guid id, double size, string name, Guid uploaderId, DateTime uploadedAt, int fileTypeId)
     {
         return new File()

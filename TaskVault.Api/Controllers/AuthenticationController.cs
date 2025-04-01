@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using TaskVault.Api.Helpers;
 using TaskVault.Contracts.Features.Authentication.Abstractions;
 using TaskVault.Contracts.Features.Authentication.Dtos;
 
@@ -20,9 +22,17 @@ public class AuthenticationController : Controller
         return Ok(await _authenticationService.CreateUserAsync(createUserDto));
     }
     
-    [HttpPost("authenticate")]
+    [HttpPost]
     public async Task<IActionResult> AuthenticateUserAsync([FromBody] AuthenticateUserDto authenticateUserDto)
     {
         return Ok(await _authenticationService.AuthenticateUserAsync(authenticateUserDto));
+    }
+    
+    [Authorize]
+    [HttpGet("you")]
+    public async Task<IActionResult> GetUserAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _authenticationService.GetUserAsync(userEmail));
     }
 }

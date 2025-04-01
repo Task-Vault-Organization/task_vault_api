@@ -1,6 +1,7 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -21,11 +22,13 @@ public class AuthenticationService : IAuthenticationService
     private readonly IExceptionHandlingService _exceptionHandlingService;
     private readonly IRepository<User> _userRepository;
     private readonly JwtOptions _jwtOptions;
+    private readonly IMapper _mapper;
 
-    public AuthenticationService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, IOptions<JwtOptions> jwtOptions)
+    public AuthenticationService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, IOptions<JwtOptions> jwtOptions, IMapper mapper)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _userRepository = userRepository;
+        _mapper = mapper;
         _jwtOptions = jwtOptions.Value;
     }
 
@@ -67,6 +70,20 @@ public class AuthenticationService : IAuthenticationService
 
             return AuthenticateUserResponseDto.Create("Successful authentication", jwtToken);
         }, "Error when authenticating user");
+    }
+
+    public async Task<GetUserResponseDto> GetUserAsync(string userEmail)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+            
+            return GetUserResponseDto.Create("Successfully retrieved user", _mapper.Map<GetUserDto>(foundUser));
+        }, "Error when getting user");
     }
 
     private void HashUserPassword(User user)

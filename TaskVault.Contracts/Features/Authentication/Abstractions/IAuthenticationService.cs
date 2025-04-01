@@ -7,4 +7,5 @@ public interface IAuthenticationService
 {
     Task<BaseApiResponse> CreateUserAsync(CreateUserDto createUserDto);
     Task<AuthenticateUserResponseDto> AuthenticateUserAsync(AuthenticateUserDto authenticateUserDto);
+    Task<GetUserResponseDto> GetUserAsync(string userEmail);
 }

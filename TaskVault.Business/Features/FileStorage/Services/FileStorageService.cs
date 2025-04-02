@@ -74,25 +74,14 @@ public class FileStorageService : IFileStorageService
         }, "Error when uploading file");
     }
 
-    public async Task<BaseApiFileResponse> DownloadFileAsync(string userEmail, Guid fileId)
+    public async Task<BaseApiFileResponse> DownloadFileAsync(Guid fileId)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-
             var foundDatabaseFIle = await _fileRepository.GetByIdAsync(fileId);
             if (foundDatabaseFIle == null)
             {
                 throw new ServiceException(StatusCodes.Status404NotFound, "File not found");
-            }
-
-            if (foundDatabaseFIle.Owners?.FirstOrDefault(u => u.Id == foundUser.Id) == null)
-            {
-                throw new ServiceException(StatusCodes.Status403Forbidden, "Forbidden access to file");
             }
             
             var request = new GetObjectRequest

@@ -6,5 +6,5 @@ namespace TaskVault.Contracts.Features.FileStorage.Abstractions;
 public interface IFileStorageService
 {
     Task<BaseApiResponse> UploadFileAsync(string userEmail, IFormFile file);
-    Task<BaseApiFileResponse> DownloadFileAsync(string userEmail, Guid fileID);
+    Task<BaseApiFileResponse> DownloadFileAsync(Guid fileID);
 }

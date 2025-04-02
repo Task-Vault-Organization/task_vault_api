@@ -15,12 +15,18 @@ public static class DependencyInjection
     {
         services.AddDbContext<TaskVaultDevContext>((options) =>
         {
-            options.UseSqlite(configuration.GetConnectionString("TaskVaultDevContext"));
+            options.UseSqlite(configuration.GetConnectionString("TaskVaultDevContext"))
+                .EnableDetailedErrors()
+                .EnableSensitiveDataLogging();
         });
         services.AddTransient<IRepository<User>, Repository<User>>();
         services.AddTransient<IRepository<File>, FileRepository>();
         services.AddTransient<IRepository<FileType>, Repository<FileType>>();
         services.AddTransient<IFileRepository, FileRepository>();
+        services.AddTransient<ITaskItemRepository, TaskItemRepository>();
+        services.AddTransient<ITasksRepository, TasksRepository>();
+        services.AddTransient<ITaskSubmissionRepository, TaskSubmissionRepository>();
+        services.AddTransient<ITaskSubmissionTaskItemFileRepository, TaskSubmissionTaskItemFileRepository>();
         
         return services;
     }

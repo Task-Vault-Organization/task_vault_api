@@ -65,4 +65,22 @@ public class FileRepository : Repository<File>, IFileRepository
             throw;
         }
     }
+
+    public async Task<File?> GetFileByIdAsync(Guid id)
+    {
+        try
+        {
+            return await Context.Files
+                .Include((f) => f.FileType)
+                .Include(f => f.Owners)
+                .Include(f => f.Uploader)
+                .Include(f => f.Uploader)
+                .FirstOrDefaultAsync(f => f.Id == id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex.ToString());
+            throw;
+        }
+    }
 }

@@ -6,4 +6,5 @@ public interface IFileRepository : IRepository<File>
 {
     Task<IEnumerable<File>> GetAllUploadedFilesAsync(Guid uploaderId);
     Task<IEnumerable<File>> GetAllSharedFilesAsync(Guid uploaderId);
+    Task<File?> GetFileByIdAsync(Guid id);
 }

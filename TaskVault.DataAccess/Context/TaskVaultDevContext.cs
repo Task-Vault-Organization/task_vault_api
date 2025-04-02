@@ -53,6 +53,22 @@ public class TaskVaultDevContext : DbContext
             .WithMany()
             .HasForeignKey(t => t.OwnerId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Task>()
+            .HasMany(t => t.Assignees)
+            .WithMany(u => u.Tasks)
+            .UsingEntity<Dictionary<string, object>>(
+                "TaskUsers",
+                j => j.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade),
+                j => j.HasOne<Task>()
+                    .WithMany()
+                    .HasForeignKey("TaskId")
+                    .OnDelete(DeleteBehavior.Cascade)
+            );
+            
         
         modelBuilder.Entity<Task>()
             .HasOne(t => t.Status)
@@ -65,6 +81,12 @@ public class TaskVaultDevContext : DbContext
             .HasOne(ti => ti.FileType)
             .WithMany()
             .HasForeignKey(ti => ti.FileTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        modelBuilder.Entity<TaskItem>()
+            .HasOne<Task>(ti => ti.Task)
+            .WithMany()
+            .HasForeignKey(ti => ti.TaskId)
             .OnDelete(DeleteBehavior.Restrict);
         
         modelBuilder.Entity<TaskItem>()

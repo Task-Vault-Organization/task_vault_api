@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250401205915_ManyToManyTasksAndUsers")]
+    partial class ManyToManyTasksAndUsers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -166,9 +169,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.Property<int>("FileTypeId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid>("TaskId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -179,8 +179,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.HasIndex("FileCategoryId");
 
                     b.HasIndex("FileTypeId");
-
-                    b.HasIndex("TaskId");
 
                     b.ToTable("TaskItems");
                 });
@@ -350,17 +348,9 @@ namespace TaskVault.DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("TaskVault.DataAccess.Entities.Task", "Task")
-                        .WithMany()
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("FileCategory");
 
                     b.Navigation("FileType");
-
-                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmission", b =>

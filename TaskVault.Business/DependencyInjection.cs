@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using TaskVault.Business.Features.FileStorage.Services;
+using TaskVault.Business.Features.Tasks.Services;
 using TaskVault.Business.Shared.Services;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
+using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using AuthenticationService = TaskVault.Business.Features.Authentication.Services.AuthenticationService;
 using IAuthenticationService = TaskVault.Contracts.Features.Authentication.Abstractions.IAuthenticationService;
@@ -17,6 +19,7 @@ public static class DependencyInjection
         services.AddTransient<IFileStorageService, FileStorageService>();
         services.AddTransient<IAuthenticationService, AuthenticationService>();
         services.AddTransient<IFileService, FileService>();
+        services.AddTransient<ITaskService, TaskService>();
         return services;
     }
 }

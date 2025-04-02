@@ -26,4 +26,6 @@ public class User
             Password = password
         };
     }
+    
+    public virtual IEnumerable<Task>? Tasks { get; set; }
 }

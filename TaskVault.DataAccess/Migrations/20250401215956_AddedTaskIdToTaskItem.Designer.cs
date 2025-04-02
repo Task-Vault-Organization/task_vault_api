@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250401215956_AddedTaskIdToTaskItem")]
+    partial class AddedTaskIdToTaskItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -353,7 +356,7 @@ namespace TaskVault.DataAccess.Migrations
                     b.HasOne("TaskVault.DataAccess.Entities.Task", "Task")
                         .WithMany()
                         .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("FileCategory");

@@ -69,7 +69,7 @@ public class FileService : IFileService
                 throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
             }
 
-            var file = await _fileRepository.GetByIdAsync(fileId);
+            var file = await _fileRepository.GetFileByIdAsync(fileId);
 
             if (file == null)
             {

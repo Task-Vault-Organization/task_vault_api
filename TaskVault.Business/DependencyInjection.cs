@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddTransient<IAuthenticationService, AuthenticationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<ITaskService, TaskService>();
+        services.AddTransient<IUsersService, UsersService>();
         return services;
     }
 }

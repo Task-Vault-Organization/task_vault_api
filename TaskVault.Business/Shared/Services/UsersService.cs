@@ -53,13 +53,4 @@ public class UsersService : IUsersService
             return SearchUsersResponseDto.Create(successMessage, getUserDtos);
         }, "Error when searching for users");
     }
-    
-    private string SanitizeUserEmail(string email)
-    {
-        if (string.IsNullOrEmpty(email))
-            return string.Empty;
-
-        int atIndex = email.IndexOf('@');
-        return atIndex > 0 ? email.Substring(0, atIndex) : email;
-    }
 }

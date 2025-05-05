@@ -132,7 +132,7 @@ public class TaskService : ITaskService
                 throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
             }
 
-            if (task.OwnerId != foundUser.Id || !task.Assignees!.Any(u => u.Id == foundUser.Id))
+            if (task.OwnerId != foundUser.Id && !task.Assignees!.Any(u => u.Id == foundUser.Id))
             {
                 throw new ServiceException(StatusCodes.Status403Forbidden, "Task forbidden");
             }

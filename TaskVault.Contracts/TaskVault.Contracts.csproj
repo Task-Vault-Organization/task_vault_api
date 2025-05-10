@@ -18,4 +18,8 @@
       <ProjectReference Include="..\TaskVault.DataAccess\TaskVault.DataAccess.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Features\FileClassifier\Abstractions\" />
+    </ItemGroup>
+
 </Project>

@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using TaskVault.Business.Features.FileClassifierTrainer.Services;
 using TaskVault.Business.Features.FileStorage.Services;
 using TaskVault.Business.Features.Tasks.Services;
 using TaskVault.Business.Shared.Services;
+using TaskVault.Contracts.Features.FileClassifierTrainer.Abstractions;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
@@ -21,6 +23,7 @@ public static class DependencyInjection
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<ITaskService, TaskService>();
         services.AddTransient<IUsersService, UsersService>();
+        services.AddTransient<IFileClassifierTrainer, FileClassifierTrainer>();
         return services;
     }
 }

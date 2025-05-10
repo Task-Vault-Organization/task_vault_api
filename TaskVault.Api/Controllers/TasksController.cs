@@ -45,6 +45,13 @@ public class TasksController : Controller
         return Ok(await _taskService.GetTaskAsync(userEmail, taskId));
     }
     
+    [HttpGet("{taskId}/submissions")]
+    public async Task<IActionResult> GetTaskSubmissionsAsync(Guid taskId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _taskService.GetTaskSubmissionsAsync(userEmail, taskId));
+    }
+    
     [HttpPost("submit")]
     public async Task<IActionResult> CreateTaskSubmissionAsync([FromBody] CreateTaskSubmissionDto createTaskSubmissionDto)
     {

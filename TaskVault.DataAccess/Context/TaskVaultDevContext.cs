@@ -22,6 +22,7 @@ public class TaskVaultDevContext : DbContext
     public DbSet<TaskSubmission> TaskSubmissions { get; set; }
     public DbSet<TaskSubmissionTaskItemFile> TaskSubmissionTaskItemFiles { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<CustomFileCategory> CustomFileCategories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,12 @@ public class TaskVaultDevContext : DbContext
                 j => j.HasOne<User>().WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Cascade),
                 j => j.HasOne<File>().WithMany().HasForeignKey("FileId").OnDelete(DeleteBehavior.Cascade)
             );
+
+        modelBuilder.Entity<CustomFileCategory>()
+            .HasOne<User>(cfg => cfg.User)
+            .WithMany()
+            .HasForeignKey(cfg => cfg.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Task Relationships
         modelBuilder.Entity<Task>()

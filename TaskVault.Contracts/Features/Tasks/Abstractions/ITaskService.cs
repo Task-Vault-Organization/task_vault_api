@@ -10,4 +10,5 @@ public interface ITaskService
     Task<GetTasksResponseDto> GetAssignedTasksAsync(string userEmail);
     Task<GetTaskResponseDto> GetTaskAsync(string userEmail, Guid taskId);
     Task<BaseApiResponse> CreateTaskSubmissionAsync(string userEmail, CreateTaskSubmissionDto createTaskSubmissionDto);
+    Task<GetTaskSubmissionsResponseDto> GetTaskSubmissionsAsync(string userEmail, Guid taskId);
 }

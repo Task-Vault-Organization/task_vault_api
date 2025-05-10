@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddTransient<ITasksRepository, TasksRepository>();
         services.AddTransient<ITaskSubmissionRepository, TaskSubmissionRepository>();
         services.AddTransient<ITaskSubmissionTaskItemFileRepository, TaskSubmissionTaskItemFileRepository>();
+        services.AddTransient<ICustomFileCategoryRepository, CustomFileCategoryRepository>();
         
         return services;
     }

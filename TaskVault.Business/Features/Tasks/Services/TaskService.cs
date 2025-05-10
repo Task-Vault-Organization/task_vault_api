@@ -213,6 +213,44 @@ public class TaskService : ITaskService
             return BaseApiResponse.Create("Succesfully submitted submission");
         }, "Error when retrieving task");
     }
+    
+    public async Task<GetTaskSubmissionsResponseDto> GetTaskSubmissionsAsync(string userEmail, Guid taskId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var task = await _tasksRepository.GetTaskByIdAsync(taskId);
+            if (task == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
+            }
+
+            if (task.OwnerId != foundUser.Id)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden, "Access forbidden");
+            }
+
+            var submissions = await _taskSubmissionRepository.FindAsync(ts => ts.TaskId == taskId);
+            var submissionDtos = new List<GetTaskSubmissionDto>();
+
+            foreach (var submission in submissions)
+            {
+                var dto = _mapper.Map<GetTaskSubmissionDto>(submission);
+                var submissionFiles =
+                    await _taskSubmissionTaskItemFileRepository.FindAsync(tf => tf.TaskSubmissionId == submission.Id);
+                dto.TaskItemFiles = submissionFiles.Select(f => _mapper.Map<GetTaskItemFileDto>(f));
+                submissionDtos.Add(dto);
+            }
+
+            return GetTaskSubmissionsResponseDto.Create("Successfully retrieved submissions", submissionDtos);
+        }, "Error when retrieving task submissions");
+    }
+
 
     private async void AddTaskItemsAsync(IEnumerable<CreateTaskItemDto> taskItems, Guid taskId)
     {

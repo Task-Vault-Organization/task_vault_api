@@ -9,4 +9,6 @@ public interface IFileService
     Task<GetSharedFilesResponseDto> GetAllSharedFilesAsync(string userEmail);
     Task<GetFileResponseDto> GetFileAsync(string userEmail, Guid fileId);
     Task<BaseApiResponse> DeleteUploadedFileAsync(string userEmail, Guid fileId);
+    Task<GetFileTypeReponseDto> GetAllFileTypesAsync(string userEmail);
+    Task<GetFileCategoriesResponseDto> GetAllFileCategoriesAsync(string userEmail);
 }

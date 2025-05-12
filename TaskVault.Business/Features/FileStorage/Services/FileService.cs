@@ -15,14 +15,18 @@ public class FileService : IFileService
     private readonly IExceptionHandlingService _exceptionHandlingService;
     private readonly IRepository<User> _userRepository;
     private readonly IFileRepository _fileRepository;
+    private readonly IFileTypeRepository _fileTypeRepository;
+    private readonly IFileCategoryRepository _fileCategoryRepository;
     private readonly IMapper _mapper;
 
-    public FileService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, IFileRepository fileRepository, IMapper mapper)
+    public FileService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, IFileRepository fileRepository, IMapper mapper, IFileTypeRepository fileTypeRepository, IFileCategoryRepository fileCategoryRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _userRepository = userRepository;
         _fileRepository = fileRepository;
         _mapper = mapper;
+        _fileTypeRepository = fileTypeRepository;
+        _fileCategoryRepository = fileCategoryRepository;
     }
 
     public async Task<GetUploadedFilesResponseDto> GetAllUploadedFilesAsync(string userEmail)
@@ -111,5 +115,37 @@ public class FileService : IFileService
 
             return BaseApiResponse.Create("Successfully deleted file");
         }, "Error when deleting file");
+    }
+
+    public async Task<GetFileTypeReponseDto> GetAllFileTypesAsync(string userEmail)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var fileTypes = (await _fileTypeRepository.GetAllAsync())
+                .Select((ft) => _mapper.Map<GetFileTypeDto>(ft));
+            return GetFileTypeReponseDto.Create("Successfully retrieved file types", fileTypes);
+        }, "Error when retrieving file types");
+    }
+
+    public async Task<GetFileCategoriesResponseDto> GetAllFileCategoriesAsync(string userEmail)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var fileCategories = (await _fileCategoryRepository.GetAllAsync())
+                .Select((ft) => _mapper.Map<GetFileCategoryDto>(ft));
+            return GetFileCategoriesResponseDto.Create("Successfully retrieved file types", fileCategories);
+        }, "Error when retrieving file categories");
     }
 }

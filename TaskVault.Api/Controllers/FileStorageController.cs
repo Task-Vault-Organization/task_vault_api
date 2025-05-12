@@ -61,6 +61,22 @@ public class FileStorageController : Controller
     }
     
     [Authorize]
+    [HttpGet("file-types")]
+    public async Task<IActionResult> GetFileTypesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllFileTypesAsync(userEmail));
+    }
+    
+    [Authorize]
+    [HttpGet("file-categories")]
+    public async Task<IActionResult> GetFileCategoriesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllFileCategoriesAsync(userEmail));
+    }
+    
+    [Authorize]
     [HttpDelete("{fileID}")]
     public async Task<IActionResult> DeleteFileAsync(Guid fileId)
     {

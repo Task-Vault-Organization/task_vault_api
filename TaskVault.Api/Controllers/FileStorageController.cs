@@ -4,6 +4,7 @@ using TaskVault.Api.Helpers;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using Tesseract;
 using IronOcr;
+using TaskVault.Contracts.Features.FileStorage.Dtos;
 
 namespace TaskVault.Api.Controllers;
 
@@ -21,10 +22,10 @@ public class FileStorageController : Controller
     
     [Authorize]
     [HttpPost("upload")]
-    public async Task<IActionResult> UploadFileAsync(IFormFile file)
+    public async Task<IActionResult> UploadFileAsync([FromForm] UploadFileDto uploadFileDto)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileStorageService.UploadFileAsync(userEmail, file));
+        return Ok(await _fileStorageService.UploadFileAsync(userEmail, uploadFileDto));
     }
 
     [HttpGet("download/{fileId}")]
@@ -33,7 +34,7 @@ public class FileStorageController : Controller
         var downloadFileResponse = await _fileStorageService.DownloadFileAsync(fileId);
         return File(downloadFileResponse.FileMemoryStream.ToArray(), 
             downloadFileResponse.ContentType ?? "application/octet-stream", 
-            fileId.ToString() + ".png");
+            fileId.ToString());
     }
     
     [Authorize]
@@ -42,6 +43,14 @@ public class FileStorageController : Controller
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileService.GetAllUploadedFilesAsync(userEmail));
+    }
+    
+    [Authorize]
+    [HttpGet("uploaded/directory")]
+    public async Task<IActionResult> GetAllUploadedFilesAsync(string? directoryName)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllUploadedDirectoryFilesAsync(userEmail, directoryName));
     }
     
     [Authorize]
@@ -110,6 +119,14 @@ public class FileStorageController : Controller
         {
             return StatusCode(500, $"Error processing image: {ex.Message}");
         }
+    }
+
+    [Authorize]
+    [HttpPost("create-directory")]
+    public async Task<IActionResult> CreateDirectoryAsync([FromBody] CreateDirectoryDto createDirectoryDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileStorageService.CreateDirectoryAsync(userEmail, createDirectoryDto));
     }
 
     private static string PerformOcr(byte[] imageBytes)

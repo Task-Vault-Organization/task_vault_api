@@ -16,6 +16,10 @@ public class GetFileDto
     public required DateTime UploadedAt { get; set; }
 
     public required int FileTypeId { get; set; }
+
+    public required bool IsDirectory { get; set; } = false;
+
+    public Guid? DirectoryId { get; set; }
     
     public FileType? FileType { get; set; }
     

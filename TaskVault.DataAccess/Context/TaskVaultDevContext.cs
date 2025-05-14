@@ -26,19 +26,18 @@ public class TaskVaultDevContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // File Relationships
         modelBuilder.Entity<File>()
             .HasOne(f => f.Uploader)
             .WithMany()
             .HasForeignKey(f => f.UploaderId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
         modelBuilder.Entity<File>()
             .HasOne(f => f.FileType)
             .WithMany()
             .HasForeignKey(f => f.FileTypeId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
         modelBuilder.Entity<File>()
             .HasMany<User>(f => f.Owners)
             .WithMany(u => u.Files)
@@ -48,13 +47,18 @@ public class TaskVaultDevContext : DbContext
                 j => j.HasOne<File>().WithMany().HasForeignKey("FileId").OnDelete(DeleteBehavior.Cascade)
             );
 
+        modelBuilder.Entity<File>()
+            .HasOne(f => f.Directory)
+            .WithMany(f => f.Children)
+            .HasForeignKey(f => f.DirectoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<CustomFileCategory>()
             .HasOne<User>(cfg => cfg.User)
             .WithMany()
             .HasForeignKey(cfg => cfg.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Task Relationships
         modelBuilder.Entity<Task>()
             .HasOne(t => t.Owner)
             .WithMany()
@@ -75,47 +79,43 @@ public class TaskVaultDevContext : DbContext
                     .HasForeignKey("TaskId")
                     .OnDelete(DeleteBehavior.Cascade)
             );
-            
-        
+
         modelBuilder.Entity<Task>()
             .HasOne(t => t.Status)
             .WithMany()
             .HasForeignKey(t => t.StatusId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // TaskItem Relationships
         modelBuilder.Entity<TaskItem>()
             .HasOne(ti => ti.FileType)
             .WithMany()
             .HasForeignKey(ti => ti.FileTypeId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
         modelBuilder.Entity<TaskItem>()
             .HasOne<Task>(ti => ti.Task)
             .WithMany()
             .HasForeignKey(ti => ti.TaskId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
         modelBuilder.Entity<TaskItem>()
             .HasOne(ti => ti.FileCategory)
             .WithMany()
             .HasForeignKey(ti => ti.FileCategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // TaskSubmission Relationships
         modelBuilder.Entity<TaskSubmission>()
             .HasOne(ts => ts.Task)
             .WithMany()
             .HasForeignKey(ts => ts.TaskId)
             .OnDelete(DeleteBehavior.Cascade);
-        
+
         modelBuilder.Entity<TaskSubmission>()
             .HasOne(ts => ts.SubmittedByUser)
             .WithMany()
             .HasForeignKey(ts => ts.SubmittedById)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // TaskSubmissionTaskItemFile Relationships
         modelBuilder.Entity<TaskSubmissionTaskItemFile>()
             .HasKey(tsif => new { tsif.TaskSubmissionId, tsif.TaskItemId, tsif.FileId });
 
@@ -124,13 +124,13 @@ public class TaskVaultDevContext : DbContext
             .WithMany()
             .HasForeignKey(tsif => tsif.TaskSubmissionId)
             .OnDelete(DeleteBehavior.Cascade);
-        
+
         modelBuilder.Entity<TaskSubmissionTaskItemFile>()
             .HasOne<TaskItem>()
             .WithMany()
             .HasForeignKey(tsif => tsif.TaskItemId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
         modelBuilder.Entity<TaskSubmissionTaskItemFile>()
             .HasOne<File>()
             .WithMany()

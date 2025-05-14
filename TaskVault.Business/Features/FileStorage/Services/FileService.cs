@@ -45,6 +45,39 @@ public class FileService : IFileService
             return GetUploadedFilesResponseDto.Create("Successfully retrieved uploaded files", files);
         }, "Error when retrieving uploaded files");
     }
+    
+    public async Task<GetUploadedFilesResponseDto> GetAllUploadedDirectoryFilesAsync(string userEmail, string? directoryName)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            Guid? directoryId = null;
+            if (!string.IsNullOrEmpty(directoryName))
+            {
+                var foundDirectory =
+                    (await _fileRepository.FindAsync((f) => f.IsDirectory && f.Name == directoryName))
+                    .FirstOrDefault();
+            
+                if (foundDirectory == null)
+                {
+                    throw new ServiceException(StatusCodes.Status404NotFound, "Folder not found");
+                }
+
+                directoryId = foundDirectory.Id;
+            }
+
+            var files = (await _fileRepository.FindAsync((f) =>
+                    f.UploaderId == foundUser.Id && f.DirectoryId == directoryId))
+                .Select(f => _mapper.Map<GetFileDto>(f));
+
+            return GetUploadedFilesResponseDto.Create("Successfully retrieved uploaded files", files);
+        }, "Error when retrieving uploaded files");
+    }
 
     public async Task<GetSharedFilesResponseDto> GetAllSharedFilesAsync(string userEmail)
     {

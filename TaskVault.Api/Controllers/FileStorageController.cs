@@ -47,10 +47,10 @@ public class FileStorageController : Controller
     
     [Authorize]
     [HttpGet("uploaded/directory")]
-    public async Task<IActionResult> GetAllUploadedFilesAsync(string? directoryName)
+    public async Task<IActionResult> GetAllUploadedFilesAsync(Guid? directoryId)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileService.GetAllUploadedDirectoryFilesAsync(userEmail, directoryName));
+        return Ok(await _fileService.GetAllUploadedDirectoryFilesAsync(userEmail, directoryId));
     }
     
     [Authorize]
@@ -127,6 +127,14 @@ public class FileStorageController : Controller
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileStorageService.CreateDirectoryAsync(userEmail, createDirectoryDto));
+    }
+    
+    [Authorize]
+    [HttpPost("files/update-index")]
+    public async Task<IActionResult> UpdateFileIndexAsync([FromBody] UpdateFileIndexDto updateFileIndexDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileStorageService.UpdateFileIndexAsync(userEmail, updateFileIndexDto));
     }
 
     private static string PerformOcr(byte[] imageBytes)

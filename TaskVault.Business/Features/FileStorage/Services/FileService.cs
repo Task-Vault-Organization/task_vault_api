@@ -46,7 +46,7 @@ public class FileService : IFileService
         }, "Error when retrieving uploaded files");
     }
     
-    public async Task<GetUploadedFilesResponseDto> GetAllUploadedDirectoryFilesAsync(string userEmail, string? directoryName)
+    public async Task<GetUploadedFilesResponseDto> GetAllUploadedDirectoryFilesAsync(string userEmail, Guid? directoryId)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
@@ -56,23 +56,9 @@ public class FileService : IFileService
                 throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
             }
 
-            Guid? directoryId = null;
-            if (!string.IsNullOrEmpty(directoryName))
-            {
-                var foundDirectory =
-                    (await _fileRepository.FindAsync((f) => f.IsDirectory && f.Name == directoryName))
-                    .FirstOrDefault();
-            
-                if (foundDirectory == null)
-                {
-                    throw new ServiceException(StatusCodes.Status404NotFound, "Folder not found");
-                }
-
-                directoryId = foundDirectory.Id;
-            }
-
             var files = (await _fileRepository.FindAsync((f) =>
                     f.UploaderId == foundUser.Id && f.DirectoryId == directoryId))
+                .OrderBy((f) => f.Index)
                 .Select(f => _mapper.Map<GetFileDto>(f));
 
             return GetUploadedFilesResponseDto.Create("Successfully retrieved uploaded files", files);

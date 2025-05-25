@@ -45,28 +45,22 @@ public class FileStorageService : IFileStorageService
 
             var originalFileName = Path.GetFileNameWithoutExtension(uploadFileDto.File.FileName);
             var fileExtension = Path.GetExtension(uploadFileDto.File.FileName);
-            var directoryId = (Guid?)null;
-
-            if (uploadFileDto.DirectoryName != "root")
-            {
-                var foundDirectory = (await _fileRepository.FindAsync(f =>
-                    f.IsDirectory &&
-                    f.Name == uploadFileDto.DirectoryName &&
-                    f.UploaderId == foundUser.Id)).FirstOrDefault();
-
-                if (foundDirectory == null)
-                {
-                    throw new ServiceException(StatusCodes.Status404NotFound, "Directory not found");
-                }
-
-                directoryId = foundDirectory.Id;
-            }
 
             var existingFilesInSameDir = await _fileRepository.FindAsync(f =>
                 !f.IsDirectory &&
                 f.UploaderId == foundUser.Id &&
-                f.DirectoryId == directoryId &&
+                f.DirectoryId == uploadFileDto.DirectoryId &&
                 f.Name.StartsWith(originalFileName));
+            
+            var filesInDirectory = await _fileRepository.FindAsync(f =>
+                f.UploaderId == foundUser.Id &&
+                f.DirectoryId == uploadFileDto.DirectoryId);
+            
+            foreach (var file in filesInDirectory)
+            {
+                file.Index++;
+                await _fileRepository.UpdateAsync(file, file.Id);
+            }
 
             var usedNames = new HashSet<string>(existingFilesInSameDir.Select(f => f.Name));
             var finalName = originalFileName + fileExtension;
@@ -99,16 +93,22 @@ public class FileStorageService : IFileStorageService
                 throw new ServiceException(StatusCodes.Status404NotFound, "File type not found");
             }
 
-            var newFile = File.Create(fileId, uploadFileDto.File.Length, finalName, foundUser.Id, DateTime.UtcNow, fileType.Id);
+            var newFile = File.Create(
+                fileId, 
+                uploadFileDto.File.Length, 
+                finalName, 
+                foundUser.Id, 
+                DateTime.UtcNow, 
+                fileType.Id,
+                0
+                );
             newFile.Owners = new List<User> { foundUser };
-            newFile.DirectoryId = directoryId;
+            newFile.DirectoryId = uploadFileDto.DirectoryId;
 
             await _fileRepository.AddAsync(newFile);
             return BaseApiResponse.Create($"Successfully uploaded file as: {finalName}");
         }, "Error when uploading file");
     }
-
-
 
     public async Task<BaseApiFileResponse> DownloadFileAsync(Guid fileId)
     {
@@ -150,26 +150,20 @@ public class FileStorageService : IFileStorageService
                 throw new ServiceException(StatusCodes.Status400BadRequest, "Cannot create a directory named 'root'");
             }
 
-            Guid? parentDirectoryId = null;
-            if (!string.IsNullOrEmpty(createDirectoryDto.ParentDirectoryName))
+            var filesInDirectory = await _fileRepository.FindAsync(f =>
+                f.UploaderId == foundUser.Id &&
+                f.DirectoryId == createDirectoryDto.ParentDirectoryId);
+
+            foreach (var file in filesInDirectory)
             {
-                var parentDirectory = (await _fileRepository.FindAsync(f =>
-                    f.IsDirectory &&
-                    f.Name == createDirectoryDto.ParentDirectoryName &&
-                    f.UploaderId == foundUser.Id)).FirstOrDefault();
-
-                if (parentDirectory == null)
-                {
-                    throw new ServiceException(StatusCodes.Status404NotFound, "Parent directory not found");
-                }
-
-                parentDirectoryId = parentDirectory.Id;
+                file.Index++;
+                await _fileRepository.UpdateAsync(file, file.Id);
             }
 
             var existingDirsInSameLevel = await _fileRepository.FindAsync(f =>
                 f.IsDirectory &&
                 f.UploaderId == foundUser.Id &&
-                f.DirectoryId == parentDirectoryId &&
+                f.DirectoryId == createDirectoryDto.ParentDirectoryId &&
                 f.Name.StartsWith(baseName));
 
             var usedNames = new HashSet<string>(existingDirsInSameLevel.Select(f => f.Name));
@@ -192,12 +186,72 @@ public class FileStorageService : IFileStorageService
                 foundUser.Id,
                 DateTime.UtcNow,
                 8,
-                parentDirectoryId,
+                0,
+                createDirectoryDto.ParentDirectoryId,
                 true
             );
 
             await _fileRepository.AddAsync(newFolder);
             return BaseApiResponse.Create($"Successfully created directory: {finalName}");
         }, "Error when creating directory");
+    }
+
+    public async Task<BaseApiResponse> UpdateFileIndexAsync(string userEmail, UpdateFileIndexDto updateFileIndexDto)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
+            if (foundUser == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var foundFile = await _fileRepository.GetFileByIdAsync(updateFileIndexDto.FileId);
+            if (foundFile == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "File not found");
+            }
+
+            int oldIndex = foundFile.Index;
+            int newIndex = updateFileIndexDto.NewIndex;
+
+            if (newIndex == oldIndex)
+            {
+                return BaseApiResponse.Create("No change in file index");
+            }
+
+            var siblingFiles = await _fileRepository.FindAsync(f =>
+                f.DirectoryId == foundFile.DirectoryId && f.Id != foundFile.Id);
+
+            if (newIndex < oldIndex)
+            {
+                var filesToIncrement = siblingFiles
+                    .Where(f => f.Index >= newIndex && f.Index < oldIndex)
+                    .ToList();
+
+                foreach (var file in filesToIncrement)
+                {
+                    file.Index++;
+                    await _fileRepository.UpdateAsync(file, file.Id);
+                }
+            }
+            else
+            {
+                var filesToDecrement = siblingFiles
+                    .Where(f => f.Index <= newIndex && f.Index > oldIndex)
+                    .ToList();
+
+                foreach (var file in filesToDecrement)
+                {
+                    file.Index--;
+                    await _fileRepository.UpdateAsync(file, file.Id);
+                }
+            }
+
+            foundFile.Index = newIndex;
+            await _fileRepository.UpdateAsync(foundFile, foundFile.Id);
+
+            return BaseApiResponse.Create("Successfully reordered files");
+        }, "Error when reordering files");
     }
 }

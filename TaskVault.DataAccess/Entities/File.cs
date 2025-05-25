@@ -22,6 +22,8 @@ public class File
 
     public Guid? DirectoryId { get; set; }
 
+    public required int Index { get; set; }
+
     public virtual File? Directory { get; set; }
 
     public virtual ICollection<File>? Children { get; set; }
@@ -32,7 +34,7 @@ public class File
 
     public virtual IEnumerable<User>? Owners { get; set; }
 
-    public static File Create(Guid id, double size, string name, Guid uploaderId, DateTime uploadedAt, int fileTypeId, Guid? directoryId = null, bool isDirectory = false)
+    public static File Create(Guid id, double size, string name, Guid uploaderId, DateTime uploadedAt, int fileTypeId, int index, Guid? directoryId = null, bool isDirectory = false)
     {
         return new File
         {
@@ -43,7 +45,8 @@ public class File
             UploadedAt = uploadedAt,
             FileTypeId = fileTypeId,
             DirectoryId = directoryId,
-            IsDirectory = isDirectory
+            IsDirectory = isDirectory,
+            Index = index
         };
     }
 }

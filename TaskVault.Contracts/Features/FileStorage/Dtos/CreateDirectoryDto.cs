@@ -3,5 +3,5 @@
 public class CreateDirectoryDto
 {
     public required string DirectoryName { get; set; }
-    public string? ParentDirectoryName { get; set; }
+    public Guid? ParentDirectoryId { get; set; }
 }

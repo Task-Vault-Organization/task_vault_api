@@ -18,9 +18,12 @@ public class File
 
     public required int FileTypeId { get; set; }
     
-    public required bool IsDirectory { get; set; } = false;
+    public required bool IsDirectory { get; set; }
 
     public Guid? DirectoryId { get; set; }
+
+    [MaxLength(100000)]
+    public string? HistoryJson { get; set; } = string.Empty;
 
     public required int Index { get; set; }
 

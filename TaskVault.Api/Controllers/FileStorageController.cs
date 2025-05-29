@@ -70,13 +70,37 @@ public class FileStorageController : Controller
     }
     
     [Authorize]
+    [HttpDelete("{fileId}")]
+    public async Task<IActionResult> DeleteFileAsync(Guid fileId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileStorageService.DeleteFileAsync(userEmail, fileId));
+    }
+    
+    [Authorize]
+    [HttpPatch("file/rename")]
+    public async Task<IActionResult> RenameFileAsync([FromBody] RenameFileDto renameFileDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.RenameFileAsync(userEmail, renameFileDto));
+    }
+    
+    [Authorize]
+    [HttpGet("{fileId}/history")]
+    public async Task<IActionResult> GetFileHistoryAsync(Guid fileId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetFileHistoryAsync(userEmail, fileId));
+    }
+    
+    [Authorize]
     [HttpGet("file-types")]
     public async Task<IActionResult> GetFileTypesAsync()
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileService.GetAllFileTypesAsync(userEmail));
     }
-    
+
     [Authorize]
     [HttpGet("file-categories")]
     public async Task<IActionResult> GetFileCategoriesAsync()
@@ -84,15 +108,7 @@ public class FileStorageController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileService.GetAllFileCategoriesAsync(userEmail));
     }
-    
-    [Authorize]
-    [HttpDelete("{fileID}")]
-    public async Task<IActionResult> DeleteFileAsync(Guid fileId)
-    {
-        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileService.DeleteUploadedFileAsync(userEmail, fileId));
-    }
-    
+
     [HttpPost("extract-text")]
     public async Task<IActionResult> ExtractText(IFormFile image)
     {

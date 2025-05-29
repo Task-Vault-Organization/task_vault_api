@@ -12,4 +12,6 @@ public interface IFileService
     Task<GetFileTypeReponseDto> GetAllFileTypesAsync(string userEmail);
     Task<GetFileCategoriesResponseDto> GetAllFileCategoriesAsync(string userEmail);
     Task<GetUploadedFilesResponseDto> GetAllUploadedDirectoryFilesAsync(string userEmail, Guid? directoryId);
+    Task<RenameFileResponseDto> RenameFileAsync(string userEmail, RenameFileDto renameFileDto);
+    Task<GetFileHistoryResponseDto> GetFileHistoryAsync(string userEmail, Guid fileId);
 }

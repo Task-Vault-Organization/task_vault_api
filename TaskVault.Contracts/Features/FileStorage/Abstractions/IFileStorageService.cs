@@ -10,4 +10,5 @@ public interface IFileStorageService
     Task<BaseApiFileResponse> DownloadFileAsync(Guid fileId);
     Task<BaseApiResponse> CreateDirectoryAsync(string userEmail, CreateDirectoryDto createDirectoryDto);
     Task<BaseApiResponse> UpdateFileIndexAsync(string userEmail, UpdateFileIndexDto updateFileIndexDto);
+    Task<BaseApiResponse> DeleteFileAsync(string userEmail, Guid fileId);
 }

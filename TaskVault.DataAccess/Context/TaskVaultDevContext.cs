@@ -23,6 +23,9 @@ public class TaskVaultDevContext : DbContext
     public DbSet<TaskSubmissionTaskItemFile> TaskSubmissionTaskItemFiles { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<CustomFileCategory> CustomFileCategories { get; set; }
+    public DbSet<DirectoryEntry> DirectoryEntries { get; set; }
+    public DbSet<FileShareRequest> FileShareRequests { get; set; }
+    public DbSet<FileShareRequestStatus> FileShareRequestStatuses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,17 +44,29 @@ public class TaskVaultDevContext : DbContext
         modelBuilder.Entity<File>()
             .HasMany<User>(f => f.Owners)
             .WithMany(u => u.Files)
-            .UsingEntity<Dictionary<string, object>>( 
-                "FileOwner", 
+            .UsingEntity<Dictionary<string, object>>(
+                "FileOwner",
                 j => j.HasOne<User>().WithMany().HasForeignKey("OwnerId").OnDelete(DeleteBehavior.Cascade),
                 j => j.HasOne<File>().WithMany().HasForeignKey("FileId").OnDelete(DeleteBehavior.Cascade)
             );
 
         modelBuilder.Entity<File>()
-            .HasOne(f => f.Directory)
-            .WithMany(f => f.Children)
-            .HasForeignKey(f => f.DirectoryId)
+            .HasMany(f => f.AsDirectoryEntries)
+            .WithOne(de => de.Directory)
+            .HasForeignKey(de => de.DirectoryId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<File>()
+            .HasMany(f => f.AsFileEntries)
+            .WithOne(de => de.File)
+            .HasForeignKey(de => de.FileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.DirectoryEntries)
+            .WithOne(de => de.User)
+            .HasForeignKey(de => de.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<CustomFileCategory>()
             .HasOne<User>(cfg => cfg.User)
@@ -70,14 +85,8 @@ public class TaskVaultDevContext : DbContext
             .WithMany(u => u.Tasks)
             .UsingEntity<Dictionary<string, object>>(
                 "TaskUsers",
-                j => j.HasOne<User>()
-                    .WithMany()
-                    .HasForeignKey("UserId")
-                    .OnDelete(DeleteBehavior.Cascade),
-                j => j.HasOne<Task>()
-                    .WithMany()
-                    .HasForeignKey("TaskId")
-                    .OnDelete(DeleteBehavior.Cascade)
+                j => j.HasOne<User>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade),
+                j => j.HasOne<Task>().WithMany().HasForeignKey("TaskId").OnDelete(DeleteBehavior.Cascade)
             );
 
         modelBuilder.Entity<Task>()
@@ -135,6 +144,53 @@ public class TaskVaultDevContext : DbContext
             .HasOne<File>()
             .WithMany()
             .HasForeignKey(tsif => tsif.FileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DirectoryEntry>()
+            .HasKey(de => new { de.UserId, de.DirectoryId, de.FileId });
+
+        modelBuilder.Entity<DirectoryEntry>()
+            .HasOne(de => de.User)
+            .WithMany(u => u.DirectoryEntries)
+            .HasForeignKey(de => de.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DirectoryEntry>()
+            .HasOne(de => de.Directory)
+            .WithMany(f => f.AsDirectoryEntries)
+            .HasForeignKey(de => de.DirectoryId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired();
+
+        modelBuilder.Entity<DirectoryEntry>()
+            .HasOne(de => de.File)
+            .WithMany(f => f.AsFileEntries)
+            .HasForeignKey(de => de.FileId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired();
+
+        modelBuilder.Entity<FileShareRequest>()
+            .HasOne(fsr => fsr.From)
+            .WithMany()
+            .HasForeignKey(fsr => fsr.FromId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<FileShareRequest>()
+            .HasOne(fsr => fsr.To)
+            .WithMany()
+            .HasForeignKey(fsr => fsr.ToId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<FileShareRequest>()
+            .HasOne(fsr => fsr.File)
+            .WithMany()
+            .HasForeignKey(fsr => fsr.FileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FileShareRequest>()
+            .HasOne(fsr => fsr.Status)
+            .WithMany()
+            .HasForeignKey(fsr => fsr.StatusId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

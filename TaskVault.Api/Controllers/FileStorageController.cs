@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskVault.Api.Helpers;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
-using Tesseract;
-using IronOcr;
 using TaskVault.Contracts.Features.FileStorage.Dtos;
 
 namespace TaskVault.Api.Controllers;
@@ -13,11 +11,13 @@ public class FileStorageController : Controller
 {
     private readonly IFileStorageService _fileStorageService;
     private readonly IFileService _fileService;
+    private readonly IFileSharingService _fileSharingService;
 
-    public FileStorageController(IFileStorageService fileStorageService, IFileService fileService)
+    public FileStorageController(IFileStorageService fileStorageService, IFileService fileService, IFileSharingService fileSharingService)
     {
         _fileStorageService = fileStorageService;
         _fileService = fileService;
+        _fileSharingService = fileSharingService;
     }
     
     [Authorize]
@@ -38,31 +38,7 @@ public class FileStorageController : Controller
     }
     
     [Authorize]
-    [HttpGet("uploaded")]
-    public async Task<IActionResult> GetAllUploadedFilesAsync()
-    {
-        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileService.GetAllUploadedFilesAsync(userEmail));
-    }
-    
-    [Authorize]
-    [HttpGet("uploaded/directory")]
-    public async Task<IActionResult> GetAllUploadedFilesAsync(Guid? directoryId)
-    {
-        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileService.GetAllUploadedDirectoryFilesAsync(userEmail, directoryId));
-    }
-    
-    [Authorize]
-    [HttpGet("shared")]
-    public async Task<IActionResult> GetAllSharedFilesAsync()
-    {
-        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileService.GetAllSharedFilesAsync(userEmail));
-    }
-    
-    [Authorize]
-    [HttpGet("{fileID}")]
+    [HttpGet("{fileId}")]
     public async Task<IActionResult> GetFileAsync(Guid fileId)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
@@ -109,34 +85,6 @@ public class FileStorageController : Controller
         return Ok(await _fileService.GetAllFileCategoriesAsync(userEmail));
     }
 
-    [HttpPost("extract-text")]
-    public async Task<IActionResult> ExtractText(IFormFile image)
-    {
-        if (image == null || image.Length == 0)
-            return BadRequest("No file uploaded.");
-
-        try
-        {
-            var ocr = new IronTesseract();
-        
-            using var input = new OcrInput();
-
-            using (var stream = image.OpenReadStream())
-            {
-                input.AddImage(stream);
-            }
-
-            OcrResult result = ocr.Read(input);
-            string extractedText = result.Text;
-
-            return Ok(new { text = extractedText });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Error processing image: {ex.Message}");
-        }
-    }
-
     [Authorize]
     [HttpPost("create-directory")]
     public async Task<IActionResult> CreateDirectoryAsync([FromBody] CreateDirectoryDto createDirectoryDto)
@@ -152,12 +100,76 @@ public class FileStorageController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileStorageService.UpdateFileIndexAsync(userEmail, updateFileIndexDto));
     }
-
-    private static string PerformOcr(byte[] imageBytes)
+    
+    [Authorize]
+    [HttpGet("directory/{directoryId}/files/all")]
+    public async Task<IActionResult> GetAllDirectoryFilesAsync(Guid directoryId)
     {
-        using var engine = new TesseractEngine(@"./tessdata", "eng", EngineMode.Default);
-        using var img = Pix.LoadFromMemory(imageBytes);
-        using var page = engine.Process(img);
-        return page.GetText();
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllDirectoryFilesAsync(userEmail, directoryId));
+    }
+
+    [Authorize]
+    [HttpGet("directory/{directoryId}/files/uploaded")]
+    public async Task<IActionResult> GetUploadedFilesInDirectoryAsync(Guid directoryId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetUploadedFilesInDirectoryAsync(userEmail, directoryId));
+    }
+
+    [Authorize]
+    [HttpGet("directory/{directoryId}/files/shared")]
+    public async Task<IActionResult> GetSharedFilesInDirectoryAsync(Guid directoryId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetSharedFilesInDirectoryAsync(userEmail, directoryId));
+    }
+
+    [Authorize]
+    [HttpGet("files/all")]
+    public async Task<IActionResult> GetAllUserFilesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetAllUserFilesAsync(userEmail));
+    }
+
+    [Authorize]
+    [HttpGet("files/uploaded")]
+    public async Task<IActionResult> GetUploadedFilesByUserAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetUploadedFilesByUserAsync(userEmail));
+    }
+
+    [Authorize]
+    [HttpGet("files/shared")]
+    public async Task<IActionResult> GetSharedFilesAsync()
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetFilesSharedWithUserAsync(userEmail));
+    }
+    
+    [Authorize]
+    [HttpPost("file-share-requests")]
+    public async Task<IActionResult> CreateFileShareRequestAsync([FromBody] CreateOrUpdateFileShareRequestDto createOrUpdateFileShareRequestDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileSharingService.CreateOrUpdateFileShareRequestAsync(userEmail, createOrUpdateFileShareRequestDto));
+    }
+    
+    [Authorize]
+    [HttpPatch("file-share-requests/resolve")]
+    public async Task<IActionResult> ResolveFileShareRequestAsync([FromBody] ResolveFileShareRequestDto resolveFileShareRequestDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileSharingService.ResolveFileShareRequest(userEmail, resolveFileShareRequestDto));
+    }
+    
+    [Authorize]
+    [HttpGet("file-share/{fileId}")]
+    public async Task<IActionResult> GetFileShareDataAsync(Guid fileId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileSharingService.GetFileShareDataAsync(userEmail, fileId));
     }
 }

@@ -30,6 +30,9 @@ public static class DependencyInjection
         services.AddTransient<ICustomFileCategoryRepository, CustomFileCategoryRepository>();
         services.AddTransient<IFileTypeRepository, FileTypeRepository>();
         services.AddTransient<IFileCategoryRepository, FileCategoryRepository>();
+        services.AddTransient<IDirectoryEntryRepository, DirectoryEntryRepository>();
+        services.AddTransient<IFileShareRequestRepository, FileShareRequestRepository>();
+        services.AddTransient<IFileShareRequestStatusRepository, FileShareRequestStatusRepository>();
         
         return services;
     }

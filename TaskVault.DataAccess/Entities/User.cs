@@ -6,7 +6,7 @@ public class User
 {
     [Key]
     public required Guid Id { get; set; }
-    
+
     [EmailAddress]
     [MaxLength(100)]
     public required string Email { get; set; }
@@ -14,8 +14,14 @@ public class User
     [MinLength(8)]
     [MaxLength(20)]
     public required string Password { get; set; }
-    
+
+    public Guid RootDirectoryId { get; set; }
+
     public virtual IEnumerable<File>? Files { get; set; }
+
+    public virtual IEnumerable<Task>? Tasks { get; set; }
+
+    public virtual ICollection<DirectoryEntry>? DirectoryEntries { get; set; }
 
     public static User Create(string email, string password)
     {
@@ -26,6 +32,4 @@ public class User
             Password = password
         };
     }
-    
-    public virtual IEnumerable<Task>? Tasks { get; set; }
 }

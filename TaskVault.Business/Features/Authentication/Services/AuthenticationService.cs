@@ -2,18 +2,17 @@
 using System.Security.Claims;
 using System.Text;
 using AutoMapper;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Business.Shared.Options;
 using TaskVault.Contracts.Features.Authentication.Abstractions;
 using TaskVault.Contracts.Features.Authentication.Dtos;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Dtos;
+using TaskVault.Contracts.Shared.Validator.Abstractions;
+using TaskVault.DataAccess.Entities;
 using TaskVault.DataAccess.Repositories.Abstractions;
-using User = TaskVault.DataAccess.Entities.User;
+using File = TaskVault.DataAccess.Entities.File;
 
 namespace TaskVault.Business.Features.Authentication.Services;
 
@@ -23,30 +22,54 @@ public class AuthenticationService : IAuthenticationService
     private readonly IRepository<User> _userRepository;
     private readonly JwtOptions _jwtOptions;
     private readonly IMapper _mapper;
+    private readonly IEntityValidator _entityValidator;
+    private readonly IFileRepository _fileRepository;
 
-    public AuthenticationService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, IOptions<JwtOptions> jwtOptions, IMapper mapper)
+    public AuthenticationService(
+        IExceptionHandlingService exceptionHandlingService,
+        IRepository<User> userRepository,
+        IOptions<JwtOptions> jwtOptions,
+        IMapper mapper,
+        IEntityValidator entityValidator, IFileRepository fileRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _userRepository = userRepository;
         _mapper = mapper;
         _jwtOptions = jwtOptions.Value;
+        _entityValidator = entityValidator;
+        _fileRepository = fileRepository;
     }
 
     public async Task<BaseApiResponse> CreateUserAsync(CreateUserDto createUserDto)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync((u) => u.Email == createUserDto.Email)).FirstOrDefault();
-            if (foundUser != null)
-            {
-                throw new ServiceException(StatusCodes.Status409Conflict, "Email already taken");
-            }
+            await _entityValidator.EnsureUserDoesNotExistAsync(createUserDto.Email);
+            var user = User.Create(createUserDto.Email, createUserDto.Password);
 
-            var createdUser = User.Create(createUserDto.Email, createUserDto.Password);
-            HashUserPassword(createdUser);
+            var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
+            user.Password = hasher.HashPassword(user, user.Password);
 
-            await _userRepository.AddAsync(createdUser);
-            
+            await _userRepository.AddAsync(user);
+
+            var rootFolderId = Guid.NewGuid(); 
+        
+            var newFolder = File.Create(
+                rootFolderId,
+                size: 0,
+                name: "root",
+                uploaderId: user.Id,
+                uploadedAt: DateTime.UtcNow,
+                fileTypeId: 8,
+                isDirectory: true
+            );
+
+            newFolder.Owners = new List<User> { user };
+            await _fileRepository.AddAsync(newFolder);
+
+            user.RootDirectoryId = rootFolderId;
+            await _userRepository.UpdateAsync(user, user.Id);
+
             return BaseApiResponse.Create("Successfully created user");
         }, "Error when creating user");
     }
@@ -55,19 +78,10 @@ public class AuthenticationService : IAuthenticationService
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync((u) => u.Email == authenticateUserDto.Email)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
+            var user = await _entityValidator.EnsureUserExistsAsync(authenticateUserDto.Email);
+            await _entityValidator.ValidatePasswordAsync(authenticateUserDto.Password, user);
 
-            if (!VerifyHashedPassword(authenticateUserDto.Password, foundUser))
-            {
-                throw new ServiceException(StatusCodes.Status401Unauthorized, "Wrong credentials");
-            }
-
-            var jwtToken = GetJwtToken(foundUser);
-
+            var jwtToken = GenerateJwtToken(user);
             return AuthenticateUserResponseDto.Create("Successful authentication", jwtToken);
         }, "Error when authenticating user");
     }
@@ -76,49 +90,27 @@ public class AuthenticationService : IAuthenticationService
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-            
-            return GetUserResponseDto.Create("Successfully retrieved user", _mapper.Map<GetUserDto>(foundUser));
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            return GetUserResponseDto.Create("Successfully retrieved user", _mapper.Map<GetUserDto>(user));
         }, "Error when getting user");
     }
 
-    private void HashUserPassword(User user)
+    private string GenerateJwtToken(User user)
     {
-        PasswordHasher<User> passwordHasher = new PasswordHasher<User>();
-        user.Password = passwordHasher.HashPassword(user, user.Password);
-    }
+        var claims = new[] { new Claim(ClaimTypes.Email, user.Email) };
 
-    private bool VerifyHashedPassword(string passwordToVerify, User user)
-    {
-        PasswordHasher<User> passwordHasher = new PasswordHasher<User>();
-        return (passwordHasher.VerifyHashedPassword(user, user.Password, passwordToVerify)) ==
-               PasswordVerificationResult.Success;
-    }
-
-    private string GetJwtToken(User user)
-    {
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.Email, user.Email)
-        };
-            
-        var jwtSecret = _jwtOptions.Secret;
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            
-        var tokenDescriptor = new SecurityTokenDescriptor()
+
+        var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(3),
             SigningCredentials = credentials
         };
-            
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+
+        var handler = new JwtSecurityTokenHandler();
+        var token = handler.CreateToken(tokenDescriptor);
+        return handler.WriteToken(token);
     }
 }

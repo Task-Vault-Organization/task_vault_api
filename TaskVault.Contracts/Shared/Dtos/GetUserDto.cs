@@ -5,4 +5,5 @@ public class GetUserDto
     public required Guid Id { get; set; }
     
     public required string Email { get; set; }
+    public Guid? RootDirectoryId { get; set; }
 }

@@ -20,24 +20,20 @@ public class File
     
     public required bool IsDirectory { get; set; }
 
-    public Guid? DirectoryId { get; set; }
-
     [MaxLength(100000)]
     public string? HistoryJson { get; set; } = string.Empty;
-
-    public required int Index { get; set; }
-
-    public virtual File? Directory { get; set; }
-
-    public virtual ICollection<File>? Children { get; set; }
 
     public virtual User? Uploader { get; set; }
     
     public virtual FileType? FileType { get; set; }
 
     public virtual IEnumerable<User>? Owners { get; set; }
+    
+    public virtual ICollection<DirectoryEntry>? AsDirectoryEntries { get; set; }
+    
+    public virtual ICollection<DirectoryEntry>? AsFileEntries { get; set; }
 
-    public static File Create(Guid id, double size, string name, Guid uploaderId, DateTime uploadedAt, int fileTypeId, int index, Guid? directoryId = null, bool isDirectory = false)
+    public static File Create(Guid id, double size, string name, Guid uploaderId, DateTime uploadedAt, int fileTypeId, bool isDirectory = false)
     {
         return new File
         {
@@ -47,9 +43,7 @@ public class File
             UploaderId = uploaderId,
             UploadedAt = uploadedAt,
             FileTypeId = fileTypeId,
-            DirectoryId = directoryId,
             IsDirectory = isDirectory,
-            Index = index
         };
     }
 }

@@ -5,6 +5,7 @@ using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Dtos;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Dtos;
+using TaskVault.Contracts.Shared.Validator.Abstractions;
 using TaskVault.DataAccess.Entities;
 using TaskVault.DataAccess.Repositories.Abstractions;
 using Task = TaskVault.DataAccess.Entities.Task;
@@ -14,45 +15,46 @@ namespace TaskVault.Business.Features.Tasks.Services;
 public class TaskService : ITaskService
 {
     private readonly IExceptionHandlingService _exceptionHandlingService;
-    private readonly IRepository<User> _userRepository;
     private readonly ITaskItemRepository _taskItemRepository;
     private readonly ITasksRepository _tasksRepository;
     private readonly IMapper _mapper;
-    private readonly IFileRepository _fileRepository;
     private readonly ITaskSubmissionTaskItemFileRepository _taskSubmissionTaskItemFileRepository;
     private readonly ITaskSubmissionRepository _taskSubmissionRepository;
+    private readonly IEntityValidator _entityValidator;
+    private readonly IRepository<User> _userRepository;
 
-    public TaskService(IExceptionHandlingService exceptionHandlingService, IRepository<User> userRepository, ITaskItemRepository taskItemRepository, ITasksRepository tasksRepository, IMapper mapper, IFileRepository fileRepository, ITaskSubmissionTaskItemFileRepository taskSubmissionTaskItemFileRepository, ITaskSubmissionRepository taskSubmissionRepository)
+    public TaskService(
+        IExceptionHandlingService exceptionHandlingService,
+        ITaskItemRepository taskItemRepository,
+        ITasksRepository tasksRepository,
+        IMapper mapper,
+        ITaskSubmissionTaskItemFileRepository taskSubmissionTaskItemFileRepository,
+        ITaskSubmissionRepository taskSubmissionRepository,
+        IEntityValidator entityValidator, IRepository<User> userRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
-        _userRepository = userRepository;
         _taskItemRepository = taskItemRepository;
         _tasksRepository = tasksRepository;
         _mapper = mapper;
-        _fileRepository = fileRepository;
         _taskSubmissionTaskItemFileRepository = taskSubmissionTaskItemFileRepository;
         _taskSubmissionRepository = taskSubmissionRepository;
+        _entityValidator = entityValidator;
+        _userRepository = userRepository;
     }
 
     public async Task<BaseApiResponse> CreateTaskAsync(string userEmail, CreateTaskDto createTask)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var taskId = Guid.NewGuid();
-            var newTask = Task.Create(taskId, createTask.Title, createTask.Description, foundUser.Id);
+            var newTask = Task.Create(taskId, createTask.Title, createTask.Description, user.Id);
             if (createTask.DeadlineAt != null) newTask.DeadlineAt = createTask.DeadlineAt;
+
             AddAssignees(createTask.AssigneesIds, newTask);
-            
             await _tasksRepository.AddAsync(newTask);
-            
-            AddTaskItemsAsync(createTask.TaskItems, taskId);
-            
+            AddTaskItems(createTask.TaskItems, taskId);
+
             return BaseApiResponse.Create("Successfully added new task");
         }, "Error when creating task");
     }
@@ -61,20 +63,10 @@ public class TaskService : ITaskService
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var tasks = await _tasksRepository.GetOwnedTasksAsync(user.Id);
 
-            var tasks = await _tasksRepository.GetOwnedTasksAsync(foundUser.Id);
-            var enumerable = tasks as Task[] ?? tasks.ToArray();
-            if (!enumerable.Any())
-            {
-                return GetTasksResponseDto.Create("No owned tasks found", Enumerable.Empty<GetTaskDto>());
-            }
-
-            var taskDtos = await System.Threading.Tasks.Task.WhenAll(enumerable.Select(async t =>
+            var taskDtos = await System.Threading.Tasks.Task.WhenAll(tasks.Select(async t =>
             {
                 var getTask = _mapper.Map<GetTaskDto>(t);
                 var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(t.Id);
@@ -86,25 +78,14 @@ public class TaskService : ITaskService
         }, "Error when retrieving owned tasks");
     }
 
-
     public async Task<GetTasksResponseDto> GetAssignedTasksAsync(string userEmail)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var tasks = await _tasksRepository.GetAssignedTasksAsync(user.Id);
 
-            var tasks = await _tasksRepository.GetAssignedTasksAsync(foundUser.Id);
-            var enumerable = tasks as Task[] ?? tasks.ToArray();
-            if (!enumerable.Any())
-            {
-                return GetTasksResponseDto.Create("No owned tasks found", Enumerable.Empty<GetTaskDto>());
-            }
-
-            var taskDtos = await System.Threading.Tasks.Task.WhenAll(enumerable.Select(async t =>
+            var taskDtos = await System.Threading.Tasks.Task.WhenAll(tasks.Select(async t =>
             {
                 var getTask = _mapper.Map<GetTaskDto>(t);
                 var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(t.Id);
@@ -120,22 +101,9 @@ public class TaskService : ITaskService
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-
-            var task = await _tasksRepository.GetTaskByIdAsync(taskId);
-            if (task == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
-            }
-
-            if (task.OwnerId != foundUser.Id && !task.Assignees!.Any(u => u.Id == foundUser.Id))
-            {
-                throw new ServiceException(StatusCodes.Status403Forbidden, "Task forbidden");
-            }
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(taskId);
+            await _entityValidator.EnsureTaskAccessibleAsync(task, user);
 
             var getTask = _mapper.Map<GetTaskDto>(task);
             var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(task.Id);
@@ -149,91 +117,50 @@ public class TaskService : ITaskService
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-
-            var task = await _tasksRepository.GetTaskByIdAsync(createTaskSubmissionDto.TaskId);
-            if (task == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
-            }
-
-            if (!task.Assignees!.Any(u => u.Id == foundUser.Id))
-            {
-                throw new ServiceException(StatusCodes.Status403Forbidden, "Task forbidden");
-            }
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(createTaskSubmissionDto.TaskId);
+            await _entityValidator.EnsureTaskAccessibleAsync(task, user);
 
             var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(task.Id);
+            var itemList = taskItems.ToList();
 
-            var enumerable = taskItems as TaskItem[] ?? taskItems.ToArray();
-            foreach (var taskItem in enumerable)
+            foreach (var taskItem in itemList)
             {
-                var foundTask = createTaskSubmissionDto.TaskItemFiles.Where(tif => tif.TaskItemId == taskItem.Id);
-                if (!foundTask.Any()) throw new ServiceException(StatusCodes.Status400BadRequest, $"Task with title '{taskItem.Title}' is missing");
+                var hasSubmission = createTaskSubmissionDto.TaskItemFiles.Any(tif => tif.TaskItemId == taskItem.Id);
+                if (!hasSubmission)
+                    throw new ServiceException(StatusCodes.Status400BadRequest, $"Task with title '{taskItem.Title}' is missing");
             }
 
-            foreach (var getTaskItemFileDto in createTaskSubmissionDto.TaskItemFiles)
+            foreach (var dto in createTaskSubmissionDto.TaskItemFiles)
             {
-                var foundTask = enumerable.Where(ti => ti.Id == getTaskItemFileDto.TaskItemId);
-                var items = foundTask as TaskItem[] ?? foundTask.ToArray();
-                if (!items.Any()) throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
+                var taskItem = itemList.FirstOrDefault(ti => ti.Id == dto.TaskItemId)
+                    ?? throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
 
-                var foundTaskItem = items.FirstOrDefault();
-
-                var foundFile = await _fileRepository.GetFileByIdAsync(getTaskItemFileDto.FileId);
-                if (foundFile == null)
-                {
-                    throw new ServiceException(StatusCodes.Status404NotFound,
-                        $"File with id {getTaskItemFileDto.FileId} not found");
-                }
-
-                if (foundTaskItem != null && foundTaskItem.FileTypeId != foundFile.FileTypeId)
-                {
-                    throw new ServiceException(StatusCodes.Status400BadRequest,
-                        $"File with id {getTaskItemFileDto.FileId} should have {foundFile.FileType?.Extension} format");
-                }
+                var file = await _entityValidator.GetFileOrThrowAsync(dto.FileId);
+                await _entityValidator.ValidateTaskItemFileCompatibilityAsync(taskItem, file);
             }
 
             var submissionId = Guid.NewGuid();
-            var newSubmission = TaskSubmission.Create(submissionId, task.Id, foundUser.Id);
+            var submission = TaskSubmission.Create(submissionId, task.Id, user.Id);
+            await _taskSubmissionRepository.AddAsync(submission);
 
-            await _taskSubmissionRepository.AddAsync(newSubmission);
-            
-            foreach (var getTaskItemFileDto in createTaskSubmissionDto.TaskItemFiles)
+            foreach (var dto in createTaskSubmissionDto.TaskItemFiles)
             {
-                var newTaskItemFile = TaskSubmissionTaskItemFile.Create(submissionId, getTaskItemFileDto.TaskItemId,
-                    getTaskItemFileDto.FileId);
-
-                await _taskSubmissionTaskItemFileRepository.AddAsync(newTaskItemFile);
+                var itemFile = TaskSubmissionTaskItemFile.Create(submissionId, dto.TaskItemId, dto.FileId);
+                await _taskSubmissionTaskItemFileRepository.AddAsync(itemFile);
             }
 
             return BaseApiResponse.Create("Succesfully submitted submission");
         }, "Error when retrieving task");
     }
-    
+
     public async Task<GetTaskSubmissionsResponseDto> GetTaskSubmissionsAsync(string userEmail, Guid taskId)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
-            var foundUser = (await _userRepository.FindAsync(u => u.Email == userEmail)).FirstOrDefault();
-            if (foundUser == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
-            }
-
-            var task = await _tasksRepository.GetTaskByIdAsync(taskId);
-            if (task == null)
-            {
-                throw new ServiceException(StatusCodes.Status404NotFound, "Task not found");
-            }
-
-            if (task.OwnerId != foundUser.Id)
-            {
-                throw new ServiceException(StatusCodes.Status403Forbidden, "Access forbidden");
-            }
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(taskId);
+            await _entityValidator.EnsureTaskOwnerAsync(task, user);
 
             var submissions = await _taskSubmissionRepository.FindAsync(ts => ts.TaskId == taskId);
             var submissionDtos = new List<GetTaskSubmissionDto>();
@@ -241,8 +168,7 @@ public class TaskService : ITaskService
             foreach (var submission in submissions)
             {
                 var dto = _mapper.Map<GetTaskSubmissionDto>(submission);
-                var submissionFiles =
-                    await _taskSubmissionTaskItemFileRepository.FindAsync(tf => tf.TaskSubmissionId == submission.Id);
+                var submissionFiles = await _taskSubmissionTaskItemFileRepository.FindAsync(tf => tf.TaskSubmissionId == submission.Id);
                 dto.TaskItemFiles = submissionFiles.Select(f => _mapper.Map<GetTaskItemFileDto>(f));
                 submissionDtos.Add(dto);
             }
@@ -252,7 +178,7 @@ public class TaskService : ITaskService
     }
 
 
-    private async void AddTaskItemsAsync(IEnumerable<CreateTaskItemDto> taskItems, Guid taskId)
+    private async void AddTaskItems(IEnumerable<CreateTaskItemDto> taskItems, Guid taskId)
     {
         foreach (var createTaskItemDto in taskItems)
         {

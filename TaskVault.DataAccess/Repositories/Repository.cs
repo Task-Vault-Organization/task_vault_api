@@ -49,6 +49,23 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
                 throw;
             }
         }
+        
+        public virtual async Task AddRangeAsync(IEnumerable<TEntity> items, bool applyChanges = true)
+        {
+            try
+            {
+                Context.Set<TEntity>().AddRange(items);
+                if (applyChanges)
+                {
+                    await SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex.ToString());
+                throw;
+            }
+        }
 
         public virtual IEnumerable<TEntity> Find(Expression<Func<TEntity, bool>> predicate)
         {

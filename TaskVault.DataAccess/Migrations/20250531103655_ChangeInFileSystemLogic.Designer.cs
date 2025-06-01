@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250531103655_ChangeInFileSystemLogic")]
+    partial class ChangeInFileSystemLogic
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -145,56 +148,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("FileCategories");
-                });
-
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.FileShareRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("FileId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("FromId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("StatusId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("ToId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FileId");
-
-                    b.HasIndex("FromId");
-
-                    b.HasIndex("StatusId");
-
-                    b.HasIndex("ToId");
-
-                    b.ToTable("FileShareRequests");
-                });
-
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.FileShareRequestStatus", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("FileShareRequestStatuses");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.FileType", b =>
@@ -366,9 +319,6 @@ namespace TaskVault.DataAccess.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("RootDirectoryId")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
                     b.ToTable("Users");
@@ -459,41 +409,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.Navigation("FileType");
 
                     b.Navigation("Uploader");
-                });
-
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.FileShareRequest", b =>
-                {
-                    b.HasOne("TaskVault.DataAccess.Entities.File", "File")
-                        .WithMany()
-                        .HasForeignKey("FileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TaskVault.DataAccess.Entities.User", "From")
-                        .WithMany()
-                        .HasForeignKey("FromId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TaskVault.DataAccess.Entities.FileShareRequestStatus", "Status")
-                        .WithMany()
-                        .HasForeignKey("StatusId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TaskVault.DataAccess.Entities.User", "To")
-                        .WithMany()
-                        .HasForeignKey("ToId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("File");
-
-                    b.Navigation("From");
-
-                    b.Navigation("Status");
-
-                    b.Navigation("To");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.Task", b =>

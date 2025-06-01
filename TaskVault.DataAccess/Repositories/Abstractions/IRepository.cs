@@ -14,4 +14,5 @@ public interface IRepository<TEntity>
     IEnumerable<TEntity> Find(Expression<Func<TEntity, bool>> predicate);
     Task<IEnumerable<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate);
     Task<TEntity?> GetByIdAsync<TId>(TId id);
+    Task AddRangeAsync(IEnumerable<TEntity> items, bool applyChanges = true);
 }

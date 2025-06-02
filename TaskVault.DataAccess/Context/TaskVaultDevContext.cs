@@ -26,6 +26,9 @@ public class TaskVaultDevContext : DbContext
     public DbSet<DirectoryEntry> DirectoryEntries { get; set; }
     public DbSet<FileShareRequest> FileShareRequests { get; set; }
     public DbSet<FileShareRequestStatus> FileShareRequestStatuses { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<NotificationType> NotificationTypes { get; set; }
+    public DbSet<NotificationStatus> NotificationStatuses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -191,6 +194,24 @@ public class TaskVaultDevContext : DbContext
             .HasOne(fsr => fsr.Status)
             .WithMany()
             .HasForeignKey(fsr => fsr.StatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.ToUser)
+            .WithMany()
+            .HasForeignKey(n => n.ToId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.NotificationType)
+            .WithMany()
+            .HasForeignKey(n => n.NotificationTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.NotificationStatus)
+            .WithMany()
+            .HasForeignKey(n => n.NotificationStatusId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -97,7 +97,11 @@ public class AuthenticationService : IAuthenticationService
 
     private string GenerateJwtToken(User user)
     {
-        var claims = new[] { new Claim(ClaimTypes.Email, user.Email) };
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+        };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

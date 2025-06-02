@@ -1,9 +1,12 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using TaskVault.Api;
+using TaskVault.Api.Providers;
 using TaskVault.Business;
+using TaskVault.Business.Shared.Hubs;
 using TaskVault.Business.Shared.Options;
 using TaskVault.DataAccess;
 
@@ -24,9 +27,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy(name: allowedSpecificOrigin,
         policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("http://localhost:5173")
                 .AllowAnyMethod()
-                .AllowAnyHeader();
+                .AllowAnyHeader()
+                .AllowCredentials();
         });
 });
 builder.Services.AddAuthentication(options =>
@@ -89,6 +93,9 @@ builder.Services.AddHttpClient(builder.Configuration["ApiClients:Spoonacular:Nam
     client.BaseAddress = new Uri(builder.Configuration["ApiClients:Spoonacular:BaseAddress"] ?? "");
 });
 
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
+
 var app = builder.Build();
 app.UseCors(allowedSpecificOrigin);
 if (builder.Environment.IsDevelopment() || builder.Environment.IsProduction())
@@ -100,6 +107,7 @@ if (builder.Environment.IsDevelopment() || builder.Environment.IsProduction())
 
 app.UseGlobalErrorHandling();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

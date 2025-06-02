@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using TaskVault.Business.Features.FileStorage.Services;
+using TaskVault.Business.Features.Notifications.Services;
 using TaskVault.Business.Features.Tasks.Services;
 using TaskVault.Business.Shared.Services;
 using TaskVault.Business.Shared.Validator;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
+using TaskVault.Contracts.Features.Notifications.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
@@ -25,6 +27,7 @@ public static class DependencyInjection
         services.AddTransient<IUsersService, UsersService>();
         services.AddScoped<IEntityValidator, EntityValidator>();
         services.AddScoped<IFileSharingService, FileSharingService>();
+        services.AddTransient<INotificationsService, NotificationsService>();
         return services;
     }
 }

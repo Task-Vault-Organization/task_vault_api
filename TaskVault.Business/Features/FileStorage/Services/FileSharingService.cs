@@ -1,11 +1,15 @@
-﻿using TaskVault.DataAccess.Entities;
+﻿using AutoMapper;
+using TaskVault.DataAccess.Entities;
 using TaskVault.Contracts.Shared.Dtos;
 using TaskVault.Contracts.Features.FileStorage.Dtos;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
 using TaskVault.DataAccess.Repositories.Abstractions;
 using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json;
+using TaskVault.Business.Features.Notifications.Models;
 using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
+using TaskVault.Contracts.Features.Notifications.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 
 namespace TaskVault.Business.Features.FileStorage.Services;
@@ -18,13 +22,15 @@ public class FileSharingService : IFileSharingService
     private readonly IDirectoryEntryRepository _directoryEntryRepository;
     private readonly IFileRepository _fileRepository;
     private readonly IExceptionHandlingService _exceptionHandlingService;
+    private readonly IMapper _mapper;
+    private readonly INotificationsService _notificationsService;
 
     public FileSharingService(
         IEntityValidator entityValidator,
         IFileShareRequestRepository fileShareRequestRepository,
         IFileShareRequestStatusRepository fileShareRequestStatusRepository,
         IDirectoryEntryRepository directoryEntryRepository,
-        IFileRepository fileRepository, IExceptionHandlingService exceptionHandlingService)
+        IFileRepository fileRepository, IExceptionHandlingService exceptionHandlingService, IMapper mapper, INotificationsService notificationsService)
     {
         _entityValidator = entityValidator;
         _fileShareRequestRepository = fileShareRequestRepository;
@@ -32,6 +38,8 @@ public class FileSharingService : IFileSharingService
         _directoryEntryRepository = directoryEntryRepository;
         _fileRepository = fileRepository;
         _exceptionHandlingService = exceptionHandlingService;
+        _mapper = mapper;
+        _notificationsService = notificationsService;
     }
 
     public async Task<BaseApiResponse> CreateOrUpdateFileShareRequestAsync(string userEmail, CreateOrUpdateFileShareRequestDto dto)
@@ -99,6 +107,16 @@ public class FileSharingService : IFileSharingService
 
             if (newRequests.Count > 0)
                 await _fileShareRequestRepository.AddRangeAsync(newRequests);
+            
+            foreach (var fileShareRequest in newRequests)
+            {
+                var notificationContent = AcceptFileShareNotificationContent.Create(_mapper.Map<GetUserDto>(fromUser),
+                    _mapper.Map<GetFileDto>(file));
+                var notificationJson = JsonConvert.SerializeObject(notificationContent);
+                var notification = Notification.Create(Guid.NewGuid(), fileShareRequest.ToId, DateTime.Now, notificationJson, 1, 1);
+
+                await _notificationsService.SendAndSaveNotificationAsync(fromUser.Id, notification);
+            }
 
             return BaseApiResponse.Create("File share requests updated successfully");
         }, "Error when creating or updating file share request");

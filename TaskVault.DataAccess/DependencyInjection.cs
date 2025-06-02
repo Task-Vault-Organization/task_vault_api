@@ -33,6 +33,9 @@ public static class DependencyInjection
         services.AddTransient<IDirectoryEntryRepository, DirectoryEntryRepository>();
         services.AddTransient<IFileShareRequestRepository, FileShareRequestRepository>();
         services.AddTransient<IFileShareRequestStatusRepository, FileShareRequestStatusRepository>();
+        services.AddTransient<INotificationsTypeRepository, NotificationsTypeRepository>();
+        services.AddTransient<INotificationsStatusesRepository, NotificationStatusesRepository>();
+        services.AddTransient<INotificationRepository, NotificationsRepository>();
         
         return services;
     }

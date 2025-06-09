@@ -11,7 +11,7 @@
     <ItemGroup>
         <PackageReference Include="Firebase.Auth" Version="1.0.0" />
         <PackageReference Include="FirebaseStorage.net" Version="1.0.3" />
-        <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
+        <PackageReference Include="Google.Apis.Auth" Version="1.69.0" />
         <PackageReference Include="IronOcr" Version="2025.3.2" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.11" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />

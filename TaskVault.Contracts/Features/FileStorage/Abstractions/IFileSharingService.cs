@@ -8,6 +8,6 @@ public interface IFileSharingService
     Task<BaseApiResponse> CreateOrUpdateFileShareRequestAsync(string userEmail,
         CreateOrUpdateFileShareRequestDto createOrUpdateFileShareRequestDto);
 
-    Task<BaseApiResponse> ResolveFileShareRequest(string userEmail, ResolveFileShareRequestDto resolveFileShareRequestDto);
+    Task<BaseApiResponse> ResolveFileShareRequestAsync(string userEmail, ResolveFileShareRequestDto resolveFileShareRequestDto);
     Task<GetFileShareDataResponseDto> GetFileShareDataAsync(string userEmail, Guid fileId);
 }

@@ -1,11 +1,14 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
+using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Business.Shared.Helpers;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using TaskVault.Contracts.Features.FileStorage.Dtos;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Dtos;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
+using TaskVault.DataAccess.Entities;
 using TaskVault.DataAccess.Repositories.Abstractions;
 
 namespace TaskVault.Business.Features.FileStorage.Services;
@@ -19,6 +22,7 @@ public class FileService : IFileService
     private readonly IMapper _mapper;
     private readonly IEntityValidator _entityValidator;
     private readonly IDirectoryEntryRepository _directoryEntryRepository;
+    private readonly IFileHelpersService _fileHelpersService;
 
     public FileService(
         IExceptionHandlingService exceptionHandlingService,
@@ -26,7 +30,7 @@ public class FileService : IFileService
         IMapper mapper,
         IFileTypeRepository fileTypeRepository,
         IFileCategoryRepository fileCategoryRepository,
-        IEntityValidator entityValidator, IDirectoryEntryRepository directoryEntryRepository)
+        IEntityValidator entityValidator, IDirectoryEntryRepository directoryEntryRepository, IFileHelpersService fileHelpersService)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _fileRepository = fileRepository;
@@ -35,6 +39,7 @@ public class FileService : IFileService
         _fileCategoryRepository = fileCategoryRepository;
         _entityValidator = entityValidator;
         _directoryEntryRepository = directoryEntryRepository;
+        _fileHelpersService = fileHelpersService;
     }
 
     public async Task<GetFilesResponseDto> GetAllUserFilesAsync(string userEmail)
@@ -126,6 +131,7 @@ public class FileService : IFileService
         {
             var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var file = await _entityValidator.GetFileOrThrowAsync(renameFileDto.FileId);
+            await _entityValidator.EnsureFileOwnerAsync(file, user);
 
             var directoryEntry = (await _directoryEntryRepository.FindAsync(de =>
                 de.UserId == user.Id && de.FileId == file.Id)).FirstOrDefault();
@@ -193,6 +199,64 @@ public class FileService : IFileService
         }, "Error when retrieving file history");
     }
 
+    public async Task<BaseApiResponse> MoveFileToDirectoryAsync(string userEmail, MoveFileToDirectoryDto moveFileToDirectoryDto)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            
+            var file = await _entityValidator.GetFileOrThrowAsync(moveFileToDirectoryDto.FileId);
+
+            var directoryEntry =
+                (await _directoryEntryRepository.FindAsync((de) => de.UserId == user.Id && de.FileId == file.Id))
+                .FirstOrDefault();
+            if (directoryEntry == null)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden, "Directory entry doesn't belong to you");
+            }
+
+            if (directoryEntry.DirectoryId == moveFileToDirectoryDto.NewDirectoryId)
+            {
+                throw new ServiceException(StatusCodes.Status409Conflict, "This file is already in this directory");
+            }
+
+            var directoryToMoveFileTo =
+                await _entityValidator.GetFileOrThrowAsync(moveFileToDirectoryDto.NewDirectoryId);
+            _entityValidator.ValidateOwnership(directoryToMoveFileTo, user);
+            
+            if (!directoryToMoveFileTo.IsDirectory)
+            {
+                throw new ServiceException(StatusCodes.Status400BadRequest, "You can only move a file to a directory");
+            }
+
+            var isUploader = file.UploaderId == user.Id;
+            var isDirectoryOnlyOwner = directoryToMoveFileTo.Owners != null &&
+                                       directoryToMoveFileTo.Owners.Count() == 1 &&
+                                       directoryToMoveFileTo.Owners.First().Id == user.Id;
+            var isSharedDirectory = !isDirectoryOnlyOwner;
+            
+            if (!isUploader && !isDirectoryOnlyOwner)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden,
+                    "You cannot move a file that doesn't belong to you to a shared directory");
+            }
+
+            await _directoryEntryRepository.RemoveAsync(directoryEntry);
+
+            if (directoryToMoveFileTo.Owners != null)
+            {
+                file.Owners = new List<User>(directoryToMoveFileTo.Owners);
+                foreach (var owner in directoryToMoveFileTo.Owners)
+                {
+                    await _fileHelpersService.CreateDirectoryEntryAsync(file, owner.Id,
+                        directoryToMoveFileTo.Id);
+                }   
+            }
+
+            return BaseApiResponse.Create("Successfully moved file");
+        }, "Error when moving file");
+    }
+
     public async Task<GetSharedFilesResponseDto> GetAllSharedFilesAsync(string userEmail)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
@@ -213,19 +277,6 @@ public class FileService : IFileService
             _entityValidator.ValidateOwnership(file, user);
             return GetFileResponseDto.Create("Successfully retrieved file", _mapper.Map<GetFileDto>(file));
         }, "Error when retrieving file");
-    }
-
-    public async Task<BaseApiResponse> DeleteUploadedFileAsync(string userEmail, Guid fileId)
-    {
-        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
-        {
-            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
-            var file = await _entityValidator.GetFileOrThrowAsync(fileId);
-            _entityValidator.ValidateUploader(file, user);
-
-            await _fileRepository.RemoveAsync(file);
-            return BaseApiResponse.Create("Successfully deleted file");
-        }, "Error when deleting file");
     }
 
     public async Task<GetFileTypeReponseDto> GetAllFileTypesAsync(string userEmail)

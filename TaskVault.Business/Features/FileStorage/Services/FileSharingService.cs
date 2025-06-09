@@ -5,12 +5,15 @@ using TaskVault.Contracts.Features.FileStorage.Dtos;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
 using TaskVault.DataAccess.Repositories.Abstractions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using TaskVault.Business.Features.Notifications.Models;
 using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using TaskVault.Contracts.Features.Notifications.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
+using File = TaskVault.DataAccess.Entities.File;
+using Task = System.Threading.Tasks.Task;
 
 namespace TaskVault.Business.Features.FileStorage.Services;
 
@@ -24,13 +27,14 @@ public class FileSharingService : IFileSharingService
     private readonly IExceptionHandlingService _exceptionHandlingService;
     private readonly IMapper _mapper;
     private readonly INotificationsService _notificationsService;
+    private readonly ILogger<FileSharingService> _logger;
 
     public FileSharingService(
         IEntityValidator entityValidator,
         IFileShareRequestRepository fileShareRequestRepository,
         IFileShareRequestStatusRepository fileShareRequestStatusRepository,
         IDirectoryEntryRepository directoryEntryRepository,
-        IFileRepository fileRepository, IExceptionHandlingService exceptionHandlingService, IMapper mapper, INotificationsService notificationsService)
+        IFileRepository fileRepository, IExceptionHandlingService exceptionHandlingService, IMapper mapper, INotificationsService notificationsService, ILogger<FileSharingService> logger)
     {
         _entityValidator = entityValidator;
         _fileShareRequestRepository = fileShareRequestRepository;
@@ -40,6 +44,7 @@ public class FileSharingService : IFileSharingService
         _exceptionHandlingService = exceptionHandlingService;
         _mapper = mapper;
         _notificationsService = notificationsService;
+        _logger = logger;
     }
 
     public async Task<BaseApiResponse> CreateOrUpdateFileShareRequestAsync(string userEmail, CreateOrUpdateFileShareRequestDto dto)
@@ -48,8 +53,7 @@ public class FileSharingService : IFileSharingService
         {
             var fromUser = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var file = await _entityValidator.GetFileOrThrowAsync(dto.FileId);
-
-            _entityValidator.ValidateOwnership(file, fromUser);
+            await _entityValidator.EnsureFileOwnerAsync(file, fromUser);
 
             var ownerIds = file.Owners?.Select(o => o.Id).ToHashSet() ?? new HashSet<Guid>();
             var toUserSet = dto.ToUsers.ToHashSet();
@@ -111,7 +115,7 @@ public class FileSharingService : IFileSharingService
             foreach (var fileShareRequest in newRequests)
             {
                 var notificationContent = AcceptFileShareNotificationContent.Create(_mapper.Map<GetUserDto>(fromUser),
-                    _mapper.Map<GetFileDto>(file));
+                    _mapper.Map<GetFileDto>(file), fileShareRequest.Id);
                 var notificationJson = JsonConvert.SerializeObject(notificationContent);
                 var notification = Notification.Create(Guid.NewGuid(), fileShareRequest.ToId, DateTime.Now, notificationJson, 1, 1);
 
@@ -122,7 +126,7 @@ public class FileSharingService : IFileSharingService
         }, "Error when creating or updating file share request");
     }
 
-    public async Task<BaseApiResponse> ResolveFileShareRequest(string userEmail, ResolveFileShareRequestDto resolveFileShareRequestDto)
+    public async Task<BaseApiResponse> ResolveFileShareRequestAsync(string userEmail, ResolveFileShareRequestDto resolveFileShareRequestDto)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
@@ -144,7 +148,7 @@ public class FileSharingService : IFileSharingService
             request.StatusId = resolveFileShareRequestDto.ResponseStatusId;
             await _fileShareRequestRepository.UpdateAsync(request, request.Id);
 
-            if (resolveFileShareRequestDto.ResponseStatusId == 3)
+            if (resolveFileShareRequestDto.ResponseStatusId == 2)
             {
                 var file = await _entityValidator.GetFileOrThrowAsync(request.FileId);
 
@@ -156,14 +160,7 @@ public class FileSharingService : IFileSharingService
                     await _fileRepository.UpdateAsync(file, file.Id);
                 }
 
-                var entry = new DirectoryEntry
-                {
-                    UserId = user.Id,
-                    DirectoryId = user.RootDirectoryId,
-                    FileId = file.Id,
-                    Index = 0
-                };
-                await _directoryEntryRepository.AddAsync(entry);
+                await CreateDirectoryEntryAsync(file, user.Id, user.RootDirectoryId);
 
                 if (file.IsDirectory)
                 {
@@ -185,20 +182,41 @@ public class FileSharingService : IFileSharingService
                             await _fileRepository.UpdateAsync(childFile, childFile.Id);
                         }
 
-                        var childDirEntry = new DirectoryEntry
-                        {
-                            UserId = user.Id,
-                            DirectoryId = file.Id,
-                            FileId = childFile.Id,
-                            Index = 0
-                        };
-                        await _directoryEntryRepository.AddAsync(childDirEntry);
+                        await CreateDirectoryEntryAsync(childFile, user.Id, file.Id);
                     }
                 }
             }
 
             return BaseApiResponse.Create("File share request resolved successfully");
         }, "Error when resolving file share request");
+    }
+    
+    private async Task CreateDirectoryEntryAsync(File file, Guid userId, Guid directoryId)
+    {
+        try
+        { 
+            var newDirectoryEntry = DirectoryEntry.Create(userId, directoryId, file.Id, 0);
+            var siblings = await _directoryEntryRepository.FindAsync(de =>
+                de.UserId == userId &&
+                de.DirectoryId == directoryId);
+
+            var directoryEntries = siblings as DirectoryEntry[] ?? siblings.ToArray();
+            foreach (var directoryEntry in directoryEntries)
+            {
+                directoryEntry.Index++;
+            }
+            
+            await Task.WhenAll(directoryEntries.Select(entry =>
+                _directoryEntryRepository.UpdateAsync(entry, new object[] { entry.UserId, entry.DirectoryId, entry.FileId })
+            ));
+
+            await _directoryEntryRepository.AddAsync(newDirectoryEntry);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating directory entry");
+            throw;
+        }
     }
 
     public async Task<GetFileShareDataResponseDto> GetFileShareDataAsync(string userEmail, Guid fileId)

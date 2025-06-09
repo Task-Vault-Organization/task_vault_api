@@ -28,6 +28,12 @@ public class AuthenticationController : Controller
         return Ok(await _authenticationService.AuthenticateUserAsync(authenticateUserDto));
     }
     
+    [HttpPost("google")]
+    public async Task<IActionResult> AuthenticateUserGoogleAsync([FromBody] AuthenticateUserGoogleDto authenticateUserGoogleDto)
+    {
+        return Ok(await _authenticationService.AuthenticateUserGoogleAsync(authenticateUserGoogleDto));
+    }
+    
     [Authorize]
     [HttpGet("you")]
     public async Task<IActionResult> GetUserAsync()

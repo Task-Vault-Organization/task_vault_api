@@ -10,4 +10,15 @@ public class DirectoryEntry
     public virtual User? User { get; set; }
     public virtual File? Directory { get; set; }
     public virtual File? File { get; set; }
+
+    public static DirectoryEntry Create(Guid userId, Guid directoryId, Guid fileId, int index)
+    {
+        return new DirectoryEntry()
+        {
+            UserId = userId,
+            DirectoryId = directoryId,
+            FileId = fileId,
+            Index = index
+        };
+    }
 }

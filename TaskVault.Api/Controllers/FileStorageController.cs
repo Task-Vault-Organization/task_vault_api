@@ -31,7 +31,8 @@ public class FileStorageController : Controller
     [HttpGet("download/{fileId}")]
     public async Task<IActionResult> DownloadFileAsync(Guid fileId)
     {
-        var downloadFileResponse = await _fileStorageService.DownloadFileAsync(fileId);
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        var downloadFileResponse = await _fileStorageService.DownloadFileAsync(userEmail, fileId);
         return File(downloadFileResponse.FileMemoryStream.ToArray(), 
             downloadFileResponse.ContentType ?? "application/octet-stream", 
             fileId.ToString());
@@ -162,7 +163,7 @@ public class FileStorageController : Controller
     public async Task<IActionResult> ResolveFileShareRequestAsync([FromBody] ResolveFileShareRequestDto resolveFileShareRequestDto)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _fileSharingService.ResolveFileShareRequest(userEmail, resolveFileShareRequestDto));
+        return Ok(await _fileSharingService.ResolveFileShareRequestAsync(userEmail, resolveFileShareRequestDto));
     }
     
     [Authorize]
@@ -171,5 +172,13 @@ public class FileStorageController : Controller
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileSharingService.GetFileShareDataAsync(userEmail, fileId));
+    }
+    
+    [Authorize]
+    [HttpPost("file-share/file/move")]
+    public async Task<IActionResult> MoveFileToDirectoryAsync(MoveFileToDirectoryDto moveFileToDirectoryDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.MoveFileToDirectoryAsync(userEmail, moveFileToDirectoryDto));
     }
 }

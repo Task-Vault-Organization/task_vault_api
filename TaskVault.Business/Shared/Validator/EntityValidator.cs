@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using TaskVault.Business.Shared.Exceptions;
+using TaskVault.Business.Shared.Options;
+using TaskVault.Contracts.Features.FileStorage.Dtos;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
 using TaskVault.DataAccess.Entities;
 using TaskVault.DataAccess.Repositories.Abstractions;
@@ -15,15 +18,17 @@ public class EntityValidator : IEntityValidator
     private readonly IFileRepository _fileRepository;
     private readonly ITasksRepository _tasksRepository;
     private readonly PasswordHasher<User> _passwordHasher = new();
+    private readonly FileUploadOptions _fileUploadOptions;
 
     public EntityValidator(
         IRepository<User> userRepository,
         IFileRepository fileRepository,
-        ITasksRepository tasksRepository)
+        ITasksRepository tasksRepository, IOptions<FileUploadOptions> fileUploadOptions)
     {
         _userRepository = userRepository;
         _fileRepository = fileRepository;
         _tasksRepository = tasksRepository;
+        _fileUploadOptions = fileUploadOptions.Value;
     }
 
     public async Task<User> GetUserOrThrowAsync(string email)
@@ -113,6 +118,14 @@ public class EntityValidator : IEntityValidator
         if (taskItem.FileTypeId != file.FileTypeId)
             throw new ServiceException(StatusCodes.Status400BadRequest,
                 $"File with id {file.Id} should have {file.FileType?.Extension} format");
+        return Task.CompletedTask;
+    }
+
+    public Task EnsureUserCannotUploadMoreThanMaxFilesAtOnceAsync(UploadFileDto uploadFileDto)
+    {
+        if (uploadFileDto.Files.Count() > _fileUploadOptions.MaxNoOfFilesToUploadOnce)
+            throw new ServiceException(StatusCodes.Status400BadRequest,
+                $"You can upload up to {_fileUploadOptions.MaxNoOfFilesToUploadOnce} at once");
         return Task.CompletedTask;
     }
 }

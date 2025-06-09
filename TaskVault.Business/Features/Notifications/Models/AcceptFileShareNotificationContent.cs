@@ -7,13 +7,15 @@ public class AcceptFileShareNotificationContent
 {
     public required GetUserDto User { get; set; }
     public required GetFileDto File { get; set; }
+    public required Guid FileShareRequestId { get; set; }
 
-    public static AcceptFileShareNotificationContent Create(GetUserDto user, GetFileDto file)
+    public static AcceptFileShareNotificationContent Create(GetUserDto user, GetFileDto file, Guid fileShareRequestId)
     {
         return new AcceptFileShareNotificationContent()
         {
             User = user,
-            File = file
+            File = file,
+            FileShareRequestId = fileShareRequestId
         };
     }
 }

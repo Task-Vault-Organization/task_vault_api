@@ -9,7 +9,6 @@ public interface IFileService
     Task<GetFilesResponseDto> GetUploadedFilesByUserAsync(string userEmail);
     Task<GetFilesResponseDto> GetAllUserFilesAsync(string userEmail);
     Task<GetFileResponseDto> GetFileAsync(string userEmail, Guid fileId);
-    Task<BaseApiResponse> DeleteUploadedFileAsync(string userEmail, Guid fileId);
     Task<GetFileTypeReponseDto> GetAllFileTypesAsync(string userEmail);
     Task<GetFileCategoriesResponseDto> GetAllFileCategoriesAsync(string userEmail);
     Task<GetFilesResponseDto> GetAllDirectoryFilesAsync(string userEmail, Guid directoryId);
@@ -17,4 +16,5 @@ public interface IFileService
     Task<GetFilesResponseDto> GetSharedFilesInDirectoryAsync(string userEmail, Guid directoryId);
     Task<RenameFileResponseDto> RenameFileAsync(string userEmail, RenameFileDto renameFileDto);
     Task<GetFileHistoryResponseDto> GetFileHistoryAsync(string userEmail, Guid fileId);
+    Task<BaseApiResponse> MoveFileToDirectoryAsync(string userEmail, MoveFileToDirectoryDto moveFileToDirectoryDto);
 }

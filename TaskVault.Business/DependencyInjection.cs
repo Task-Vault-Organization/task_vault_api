@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IEntityValidator, EntityValidator>();
         services.AddScoped<IFileSharingService, FileSharingService>();
         services.AddTransient<INotificationsService, NotificationsService>();
+        services.AddTransient<IFileHelpersService, FileHelpersService>();
         return services;
     }
 }

@@ -1,4 +1,5 @@
-﻿using TaskVault.DataAccess.Entities;
+﻿using TaskVault.Contracts.Features.FileStorage.Dtos;
+using TaskVault.DataAccess.Entities;
 using File = TaskVault.DataAccess.Entities.File;
 using Task = System.Threading.Tasks.Task;
 
@@ -19,4 +20,5 @@ public interface IEntityValidator
     Task EnsureTaskOwnerAsync(TaskVault.DataAccess.Entities.Task task, User user);
     Task ValidateTaskItemFileCompatibilityAsync(TaskItem taskItem, File file);
     Task EnsureFileOwnerAsync(TaskVault.DataAccess.Entities.File file, User user);
+    Task EnsureUserCannotUploadMoreThanMaxFilesAtOnceAsync(UploadFileDto uploadFileDto);
 }

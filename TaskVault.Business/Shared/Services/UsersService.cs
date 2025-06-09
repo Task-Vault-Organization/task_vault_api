@@ -39,9 +39,7 @@ public class UsersService : IUsersService
 
             var usersFound = await _userRepository
                 .FindAsync(u =>
-                    u.Email.ToLower().Substring(0,
-                        u.Email.IndexOf("@") > 0 ? u.Email.IndexOf("@") : u.Email.Length
-                    ).Contains(searchField.ToLower())
+                    u.Email.ToLower().Trim().Contains(searchField.ToLower().Trim())
                 );
 
             var enumerable = usersFound as User[] ?? usersFound.ToArray();

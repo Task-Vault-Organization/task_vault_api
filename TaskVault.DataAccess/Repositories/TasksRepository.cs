@@ -35,6 +35,7 @@ public class TasksRepository : Repository<Task>, ITasksRepository
             return await Context.Tasks.Include(t => t.Assignees)
                 .Include(t => t.Owner)
                 .Include(t => t.Status)
+                .Include(t => t.TaskSubmissions)
                 .Where(t => t.Assignees!.Any(a => a.Id == ownerId)).ToListAsync();
         }
         catch (Exception ex)
@@ -51,6 +52,7 @@ public class TasksRepository : Repository<Task>, ITasksRepository
             return await Context.Tasks.Include(t => t.Assignees)
                 .Include(t => t.Owner)
                 .Include(t => t.Status)
+                .Include(t => t.TaskSubmissions)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
         catch (Exception ex)

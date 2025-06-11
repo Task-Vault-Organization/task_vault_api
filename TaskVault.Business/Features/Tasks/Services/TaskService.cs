@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using TaskVault.Business.Shared.Exceptions;
+using TaskVault.Contracts.Features.FileStorage.Dtos;
 using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Dtos;
 using TaskVault.Contracts.Shared.Abstractions.Services;
@@ -22,6 +23,7 @@ public class TaskService : ITaskService
     private readonly ITaskSubmissionRepository _taskSubmissionRepository;
     private readonly IEntityValidator _entityValidator;
     private readonly IRepository<User> _userRepository;
+    private readonly ITaskSubmissionTaskItemFileCommentRepository _commentRepository;
 
     public TaskService(
         IExceptionHandlingService exceptionHandlingService,
@@ -30,7 +32,7 @@ public class TaskService : ITaskService
         IMapper mapper,
         ITaskSubmissionTaskItemFileRepository taskSubmissionTaskItemFileRepository,
         ITaskSubmissionRepository taskSubmissionRepository,
-        IEntityValidator entityValidator, IRepository<User> userRepository)
+        IEntityValidator entityValidator, IRepository<User> userRepository, ITaskSubmissionTaskItemFileCommentRepository commentRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _taskItemRepository = taskItemRepository;
@@ -40,6 +42,7 @@ public class TaskService : ITaskService
         _taskSubmissionRepository = taskSubmissionRepository;
         _entityValidator = entityValidator;
         _userRepository = userRepository;
+        _commentRepository = commentRepository;
     }
 
     public async Task<BaseApiResponse> CreateTaskAsync(string userEmail, CreateTaskDto createTask)
@@ -59,43 +62,95 @@ public class TaskService : ITaskService
         }, "Error when creating task");
     }
 
-    public async Task<GetTasksResponseDto> GetOwnedTasksAsync(string userEmail)
+    public async Task<GetOwnedTasksResponseDto> GetOwnedTasksAsync(string userEmail, string sortBy, string filterBy)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
             var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var tasks = await _tasksRepository.GetOwnedTasksAsync(user.Id);
 
-            var taskDtos = await System.Threading.Tasks.Task.WhenAll(tasks.Select(async t =>
+            filterBy = filterBy.ToLower() ?? "all";
+            tasks = filterBy switch
             {
-                var getTask = _mapper.Map<GetTaskDto>(t);
-                var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(t.Id);
-                getTask.TaskItems = taskItems.Select(ti => _mapper.Map<GetTaskItemDto>(ti));
-                return getTask;
+                "started" => tasks.Where(t => t.Status?.Name == "Started"),
+                "completed" => tasks.Where(t => t.Status?.Name == "Completed"),
+                "all" => tasks,
+                _ => tasks
+            };
+
+            sortBy = sortBy.ToLower();
+            tasks = sortBy switch
+            {
+                "oldest" => tasks.OrderBy(t => t.CreatedAt),
+                _ => tasks.OrderByDescending(t => t.CreatedAt)
+            };
+
+            var taskDtos = await System.Threading.Tasks.Task.WhenAll(tasks.Select(t =>
+            {
+                var dto = _mapper.Map<GetOwnedTaskDto>(t);
+
+                var assigneeDtos = t.Assignees?.Select(assignee =>
+                {
+                    var submission = t.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == assignee.Id);
+                    return new GetTaskSubmissionUserDto
+                    {
+                        Id = assignee.Id,
+                        Email = assignee.Email,
+                        RootDirectoryId = assignee.RootDirectoryId,
+                        Approved = submission?.Approved
+                    };
+                }) ?? Enumerable.Empty<GetTaskSubmissionUserDto>();
+
+                dto.Assignees = assigneeDtos;
+
+                return System.Threading.Tasks.Task.FromResult(dto);
             }));
 
-            return GetTasksResponseDto.Create("Successfully retrieved owned tasks", taskDtos);
-        }, "Error when retrieving owned tasks");
+            return GetOwnedTasksResponseDto.Create("Successfully retrieved owned tasks", taskDtos);
+        }, "Error when retreieving owned tasks");
     }
 
-    public async Task<GetTasksResponseDto> GetAssignedTasksAsync(string userEmail)
+    public async Task<GetAssignedTasksResponseDto> GetAssignedTasksAsync(string userEmail, string sortBy, string filterBy)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
             var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var tasks = await _tasksRepository.GetAssignedTasksAsync(user.Id);
 
+            filterBy = filterBy?.ToLower() ?? "all";
+            tasks = filterBy switch
+            {
+                "started" => tasks.Where(t => t.Status?.Name == "Started"),
+                "completed" => tasks.Where(t => t.Status?.Name == "Completed"),
+                "all" => tasks,
+                _ => tasks
+            };
+
+            sortBy = sortBy.ToLower();
+            tasks = sortBy switch
+            {
+                "oldest" => tasks.OrderBy(t => t.CreatedAt),
+                _ => tasks.OrderByDescending(t => t.CreatedAt)
+            };
+
             var taskDtos = await System.Threading.Tasks.Task.WhenAll(tasks.Select(async t =>
             {
-                var getTask = _mapper.Map<GetTaskDto>(t);
-                var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(t.Id);
-                getTask.TaskItems = taskItems.Select(ti => _mapper.Map<GetTaskItemDto>(ti));
-                return getTask;
+                var dto = _mapper.Map<GetAssignedTaskDto>(t);
+
+                var submission = t.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == user.Id);
+                var comments =
+                    await _commentRepository.FindAsync(c => submission != null && c.TaskSubmissionId == submission.Id);
+
+                dto.NoComments = comments.Count();
+                dto.Approved = submission?.Approved;
+
+                return dto;
             }));
 
-            return GetTasksResponseDto.Create("Successfully retrieved assigned tasks", taskDtos);
+            return GetAssignedTasksResponseDto.Create("Successfully retrieved assigned tasks", taskDtos);
         }, "Error when retrieving assigned tasks");
     }
+
 
     public async Task<GetTaskResponseDto> GetTaskAsync(string userEmail, Guid taskId)
     {
@@ -111,6 +166,58 @@ public class TaskService : ITaskService
 
             return GetTaskResponseDto.Create("Succesfully retrieved task", getTask);
         }, "Error when retrieving task");
+    }
+    
+    public async Task<GetOwnedTaskResponseDto> GetOwnedTaskAsync(string userEmail, Guid taskId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(taskId);
+            await _entityValidator.EnsureTaskOwnerAsync(task, user);
+
+            var dto = _mapper.Map<GetOwnedTaskDto>(task);
+            var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(task.Id);
+            dto.TaskItems = taskItems.Select(ti => _mapper.Map<GetTaskItemDto>(ti));
+
+            var assigneeDtos = task.Assignees?.Select(assignee =>
+            {
+                var submission = task.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == assignee.Id);
+                return new GetTaskSubmissionUserDto
+                {
+                    Id = assignee.Id,
+                    Email = assignee.Email,
+                    RootDirectoryId = assignee.RootDirectoryId,
+                    Approved = submission?.Approved
+                };
+            }) ?? Enumerable.Empty<GetTaskSubmissionUserDto>();
+
+            dto.Assignees = assigneeDtos;
+
+            return GetOwnedTaskResponseDto.Create("Successfully retrieved owned task", dto);
+        }, "Error when retrieving owned task");
+    }
+
+    public async Task<GetAssignedTaskResponseDto> GetAssignedTaskAsync(string userEmail, Guid taskId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(taskId);
+            await _entityValidator.EnsureTaskAccessibleAsync(task, user);
+
+            var dto = _mapper.Map<GetAssignedTaskDto>(task);
+            var taskItems = await _taskItemRepository.GetTaskItemOfTaskAsync(task.Id);
+            dto.TaskItems = taskItems.Select(ti => _mapper.Map<GetTaskItemDto>(ti));
+
+            var submission = task.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == user.Id);
+            var comments = await _commentRepository.FindAsync(c => submission != null && c.TaskSubmissionId == submission.Id);
+
+            dto.Approved = submission?.Approved;
+            dto.NoComments = comments.Count();
+
+            return GetAssignedTaskResponseDto.Create("Successfully retrieved assigned task", dto);
+        }, "Error when retrieving assigned task");
     }
 
     public async Task<BaseApiResponse> CreateTaskSubmissionAsync(string userEmail, CreateTaskSubmissionDto createTaskSubmissionDto)
@@ -169,12 +276,37 @@ public class TaskService : ITaskService
             {
                 var dto = _mapper.Map<GetTaskSubmissionDto>(submission);
                 var submissionFiles = await _taskSubmissionTaskItemFileRepository.FindAsync(tf => tf.TaskSubmissionId == submission.Id);
-                dto.TaskItemFiles = submissionFiles.Select(f => _mapper.Map<GetTaskItemFileDto>(f));
+                var files = submissionFiles.Select(tf => _mapper.Map<GetFileDto>(tf.File));
+                dto.TaskItemFiles = files;
                 submissionDtos.Add(dto);
             }
 
             return GetTaskSubmissionsResponseDto.Create("Successfully retrieved submissions", submissionDtos);
         }, "Error when retrieving task submissions");
+    }
+    
+    public async Task<GetTaskSubmissionsResponseDto> GetTaskSubmissionsForAssigneeAsync(string userEmail, Guid taskId, Guid assigneeId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var task = await _entityValidator.GetTaskOrThrowAsync(taskId);
+            await _entityValidator.EnsureTaskOwnerAsync(task, user);
+
+            var submission = await _taskSubmissionRepository.FindAsync(ts => ts.TaskId == taskId && ts.SubmittedById == assigneeId);
+            var submissionDtos = new List<GetTaskSubmissionDto>();
+
+            foreach (var sub in submission)
+            {
+                var dto = _mapper.Map<GetTaskSubmissionDto>(sub);
+                var submissionFiles = await _taskSubmissionTaskItemFileRepository.FindAsync(tf => tf.TaskSubmissionId == sub.Id);
+                var files = submissionFiles.Select(tf => _mapper.Map<GetFileDto>(tf.File));
+                dto.TaskItemFiles = files;
+                submissionDtos.Add(dto);
+            }
+
+            return GetTaskSubmissionsResponseDto.Create("Successfully retrieved assignee's submissions", submissionDtos);
+        }, "Error when retrieving task submissions for assignee");
     }
 
 

@@ -23,35 +23,56 @@ public class TasksController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _taskService.CreateTaskAsync(userEmail, createTask));
     }
-    
+
     [HttpGet("owned")]
-    public async Task<IActionResult> GetOwnedTasksAsync()
+    public async Task<IActionResult> GetOwnedTasksAsync([FromQuery] string sortBy = "", [FromQuery] string filterBy = "")
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _taskService.GetOwnedTasksAsync(userEmail));
+        return Ok(await _taskService.GetOwnedTasksAsync(userEmail, sortBy, filterBy));
     }
-    
+
     [HttpGet("assigned")]
-    public async Task<IActionResult> GetAssignedTasksAsync()
+    public async Task<IActionResult> GetAssignedTasksAsync([FromQuery] string sortBy = "", [FromQuery] string filterBy = "")
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
-        return Ok(await _taskService.GetAssignedTasksAsync(userEmail));
+        return Ok(await _taskService.GetAssignedTasksAsync(userEmail, sortBy, filterBy));
     }
-    
+
     [HttpGet("{taskId}")]
     public async Task<IActionResult> GetTaskAsync(Guid taskId)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _taskService.GetTaskAsync(userEmail, taskId));
     }
-    
+
+    [HttpGet("{taskId}/owned")]
+    public async Task<IActionResult> GetOwnedTaskAsync(Guid taskId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _taskService.GetOwnedTaskAsync(userEmail, taskId));
+    }
+
+    [HttpGet("{taskId}/assigned")]
+    public async Task<IActionResult> GetAssignedTaskAsync(Guid taskId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _taskService.GetAssignedTaskAsync(userEmail, taskId));
+    }
+
     [HttpGet("{taskId}/submissions")]
     public async Task<IActionResult> GetTaskSubmissionsAsync(Guid taskId)
     {
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _taskService.GetTaskSubmissionsAsync(userEmail, taskId));
     }
-    
+
+    [HttpGet("{taskId}/submissions/{assigneeId}")]
+    public async Task<IActionResult> GetTaskSubmissionsForAssigneeAsync(Guid taskId, Guid assigneeId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _taskService.GetTaskSubmissionsForAssigneeAsync(userEmail, taskId, assigneeId));
+    }
+
     [HttpPost("submit")]
     public async Task<IActionResult> CreateTaskSubmissionAsync([FromBody] CreateTaskSubmissionDto createTaskSubmissionDto)
     {

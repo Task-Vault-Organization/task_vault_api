@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250610201011_ChangedTaskEntity")]
+    partial class ChangedTaskEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -418,35 +421,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.ToTable("TaskSubmissionTaskItemFiles");
                 });
 
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFileComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CommentHtml")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("FromUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("TaskSubmissionId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("TaskSubmissionTaskItemFileId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FromUserId");
-
-                    b.HasIndex("TaskSubmissionId", "TaskSubmissionTaskItemFileId", "FromUserId");
-
-                    b.ToTable("TaskSubmissionTaskItemFileComments");
-                });
-
             modelBuilder.Entity("TaskVault.DataAccess.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -699,7 +673,7 @@ namespace TaskVault.DataAccess.Migrations
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFile", b =>
                 {
-                    b.HasOne("TaskVault.DataAccess.Entities.File", "File")
+                    b.HasOne("TaskVault.DataAccess.Entities.File", null)
                         .WithMany()
                         .HasForeignKey("FileId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -716,34 +690,6 @@ namespace TaskVault.DataAccess.Migrations
                         .HasForeignKey("TaskSubmissionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("File");
-                });
-
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFileComment", b =>
-                {
-                    b.HasOne("TaskVault.DataAccess.Entities.User", "FromUser")
-                        .WithMany()
-                        .HasForeignKey("FromUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TaskVault.DataAccess.Entities.TaskSubmission", "TaskSubmission")
-                        .WithMany()
-                        .HasForeignKey("TaskSubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFile", "TaskSubmissionTaskItemFile")
-                        .WithMany("Comments")
-                        .HasForeignKey("TaskSubmissionId", "TaskSubmissionTaskItemFileId", "FromUserId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("FromUser");
-
-                    b.Navigation("TaskSubmission");
-
-                    b.Navigation("TaskSubmissionTaskItemFile");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.File", b =>
@@ -758,11 +704,6 @@ namespace TaskVault.DataAccess.Migrations
                     b.Navigation("TaskItems");
 
                     b.Navigation("TaskSubmissions");
-                });
-
-            modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFile", b =>
-                {
-                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.User", b =>

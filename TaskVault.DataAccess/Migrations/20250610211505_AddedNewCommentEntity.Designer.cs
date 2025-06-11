@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250610211505_AddedNewCommentEntity")]
+    partial class AddedNewCommentEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -699,7 +702,7 @@ namespace TaskVault.DataAccess.Migrations
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFile", b =>
                 {
-                    b.HasOne("TaskVault.DataAccess.Entities.File", "File")
+                    b.HasOne("TaskVault.DataAccess.Entities.File", null)
                         .WithMany()
                         .HasForeignKey("FileId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -716,8 +719,6 @@ namespace TaskVault.DataAccess.Migrations
                         .HasForeignKey("TaskSubmissionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("File");
                 });
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.TaskSubmissionTaskItemFileComment", b =>

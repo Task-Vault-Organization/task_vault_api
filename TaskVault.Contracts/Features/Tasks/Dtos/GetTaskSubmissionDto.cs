@@ -1,4 +1,6 @@
-﻿namespace TaskVault.Contracts.Features.Tasks.Dtos;
+﻿using TaskVault.Contracts.Features.FileStorage.Dtos;
+
+namespace TaskVault.Contracts.Features.Tasks.Dtos;
 
 public class GetTaskSubmissionDto
 {
@@ -7,5 +9,5 @@ public class GetTaskSubmissionDto
     public Guid SubmittedById { get; set; }
     public DateTime SubmittedAt { get; set; }
 
-    public IEnumerable<GetTaskItemFileDto> TaskItemFiles { get; set; } = new List<GetTaskItemFileDto>();
+    public IEnumerable<GetFileDto> TaskItemFiles { get; set; } = new List<GetFileDto>();
 }

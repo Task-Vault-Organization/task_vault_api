@@ -23,6 +23,10 @@ public class Task
 
     public virtual IEnumerable<User>? Assignees { get; set; }
 
+    public virtual IEnumerable<TaskSubmission>? TaskSubmissions { get; set; }
+    
+    public virtual ICollection<TaskItem>? TaskItems { get; set; }
+
     public static Task Create(Guid id, string title, string description, Guid ownerId)
     {
         return new Task

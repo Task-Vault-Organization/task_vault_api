@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using TaskVault.Contracts.Features.Tasks.Dtos;
 using TaskVault.Contracts.Shared.Dtos;
 using TaskVault.DataAccess.Entities;
 
@@ -9,5 +10,7 @@ public class UsersMapperProfiles : Profile
     public UsersMapperProfiles()
     {
         CreateMap<User, GetUserDto>();
+        CreateMap<User, GetTaskSubmissionUserDto>()
+            .ForMember(dest => dest.Approved, opt => opt.Ignore());
     }
 }

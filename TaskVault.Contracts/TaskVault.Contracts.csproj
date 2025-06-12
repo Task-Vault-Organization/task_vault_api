@@ -20,6 +20,8 @@
 
     <ItemGroup>
       <Folder Include="Features\FileClassifier\Abstractions\" />
+      <Folder Include="Features\Llm\Abstractions\" />
+      <Folder Include="Features\Llm\Dtos\" />
     </ItemGroup>
 
 </Project>

@@ -40,5 +40,8 @@ public class TasksMapperProfiles : Profile
             .ForMember(dest => dest.FileType, opt => opt.MapFrom(src => src.File.FileType))
             .ForMember(dest => dest.Uploader, opt => opt.MapFrom(src => src.File.Uploader))
             .ForMember(dest => dest.Owners, opt => opt.MapFrom(src => src.File.Owners));
+
+        CreateMap<TaskSubmissionTaskItemFileComment, GetTaskSubmittedItemFileCommentDto>();
+        CreateMap<TaskSubmission, GetTaskSubmissionDto>();
     }
 }

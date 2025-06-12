@@ -23,8 +23,8 @@ public class Task
 
     public virtual IEnumerable<User>? Assignees { get; set; }
 
-    public virtual IEnumerable<TaskSubmission>? TaskSubmissions { get; set; }
-    
+    public virtual ICollection<TaskSubmission>? TaskSubmissions { get; set; }
+
     public virtual ICollection<TaskItem>? TaskItems { get; set; }
 
     public static Task Create(Guid id, string title, string description, Guid ownerId)
@@ -39,5 +39,4 @@ public class Task
             StatusId = 1
         };
     }
-
 }

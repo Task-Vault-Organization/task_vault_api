@@ -142,7 +142,6 @@ public class FileStorageService : IFileStorageService
         {
             var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var file = await _entityValidator.GetFileOrThrowAsync(fileId);
-            _entityValidator.ValidateOwnership(file, user);
 
             var request = new GetObjectRequest
             {

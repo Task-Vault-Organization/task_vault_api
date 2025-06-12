@@ -85,8 +85,10 @@ public class TaskVaultDevContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Task>()
-            .HasMany<TaskSubmission>(t => t.TaskSubmissions)
-            .WithOne();
+            .HasMany(t => t.TaskSubmissions)
+            .WithOne(ts => ts.Task)
+            .HasForeignKey(ts => ts.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Task>()
             .HasMany(t => t.Assignees)

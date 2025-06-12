@@ -17,4 +17,5 @@ public interface IFileService
     Task<RenameFileResponseDto> RenameFileAsync(string userEmail, RenameFileDto renameFileDto);
     Task<GetFileHistoryResponseDto> GetFileHistoryAsync(string userEmail, Guid fileId);
     Task<BaseApiResponse> MoveFileToDirectoryAsync(string userEmail, MoveFileToDirectoryDto moveFileToDirectoryDto);
+    Task<GetFilesByTypeResponseDto> GetFilesByTypeAsync(string userEmail, int fileTypeId);
 }

@@ -9,5 +9,10 @@ public class GetTaskSubmissionDto
     public Guid SubmittedById { get; set; }
     public DateTime SubmittedAt { get; set; }
 
-    public IEnumerable<GetFileDto> TaskItemFiles { get; set; } = new List<GetFileDto>();
+    public IEnumerable<GetTaskSubmissionFileDto> TaskItemFiles { get; set; } = new List<GetTaskSubmissionFileDto>();
+}
+
+public class GetTaskSubmissionFileDto : GetFileDto
+{
+    public Guid TaskItemId { get; set; }
 }

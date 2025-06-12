@@ -257,6 +257,25 @@ public class FileService : IFileService
         }, "Error when moving file");
     }
 
+    public async Task<GetFilesByTypeResponseDto> GetFilesByTypeAsync(string userEmail, int fileTypeId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var fileType = (await _fileTypeRepository.FindAsync(ft => ft.Id == fileTypeId)).FirstOrDefault();
+            if (fileType == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "File type not found");
+            }
+
+            var files = (await _fileRepository.FindAsync(f =>
+                    f.UploaderId == user.Id && f.FileTypeId == fileTypeId && !f.IsDirectory))
+                .Select(f => _mapper.Map<GetFileDto>(f));
+
+            return GetFilesByTypeResponseDto.Create("Successfully retrieved files for type", files);
+        }, "Error when retieving files for type");
+    }
+
     public async Task<GetSharedFilesResponseDto> GetAllSharedFilesAsync(string userEmail)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>

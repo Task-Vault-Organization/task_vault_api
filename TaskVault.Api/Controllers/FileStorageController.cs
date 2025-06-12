@@ -181,4 +181,12 @@ public class FileStorageController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _fileService.MoveFileToDirectoryAsync(userEmail, moveFileToDirectoryDto));
     }
+    
+    [Authorize]
+    [HttpGet("files/by-type/{fileTypeId}")]
+    public async Task<IActionResult> GetFilesByTypeAsync(int fileTypeId)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _fileService.GetFilesByTypeAsync(userEmail, fileTypeId));
+    }
 }

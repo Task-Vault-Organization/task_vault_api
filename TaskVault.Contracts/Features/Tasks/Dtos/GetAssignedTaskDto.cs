@@ -24,5 +24,5 @@ public class GetAssignedTaskDto
 
     public required int NoComments { get; set; } = 0;
     
-    public required IEnumerable<GetTaskItemDto> TaskItems { get; set; } = new List<GetTaskItemDto>();
+    public required IEnumerable<GetAssignedTaskItemDto> TaskItems { get; set; } = new List<GetAssignedTaskItemDto>();
 }

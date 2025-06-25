@@ -32,7 +32,6 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
                 Logger.LogError(ex.ToString());
                 throw;
             }
-
         }
 
         public async Task<TEntity?> AddAndReturnEntityAsync(TEntity item)

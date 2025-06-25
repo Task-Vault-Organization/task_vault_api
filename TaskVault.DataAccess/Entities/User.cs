@@ -21,13 +21,17 @@ public class User
 
     public string? GoogleId { get; set; }
 
+    public required bool EmailConfirmed { get; set; } = false;
+
     public virtual IEnumerable<File>? Files { get; set; }
 
     public virtual IEnumerable<Task>? Tasks { get; set; }
 
     public virtual ICollection<DirectoryEntry>? DirectoryEntries { get; set; }
 
-    public static User Create(string email, string fullName, string password, string? googleId)
+    public virtual ICollection<EmailConfirmationRequest>? EmailConfirmationRequests { get; set; }
+
+    public static User Create(string email, string fullName, bool emailConfirmed, string password, string? googleId)
     {
         return new User()
         {
@@ -35,7 +39,8 @@ public class User
             Email = email,
             Password = password,
             FullName = fullName,
-            GoogleId = googleId
+            GoogleId = googleId,
+            EmailConfirmed = emailConfirmed
         };
     }
 }

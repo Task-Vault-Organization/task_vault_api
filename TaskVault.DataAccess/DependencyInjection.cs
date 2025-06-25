@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddTransient<INotificationsStatusesRepository, NotificationStatusesRepository>();
         services.AddTransient<INotificationRepository, NotificationsRepository>();
         services.AddTransient<ITaskSubmissionTaskItemFileCommentRepository, TaskSubmissionTaskItemFileCommentRepository>();
+        services.AddTransient<IEmailConfirmationRequestRepository, EmailConfirmationRequestRepository>();
         
         return services;
     }

@@ -33,6 +33,7 @@ public class AuthenticationService : IAuthenticationService
     private readonly ILogger<AuthenticationService> _logger;
     private const int RootFolderFileTypeId = 8;
     private readonly Microsoft.AspNetCore.Identity.PasswordHasher<User> _passwordHasher;
+    private readonly IEmailConfirmationRequestRepository _emailConfirmationRequestRepository;
 
     public AuthenticationService(
         IExceptionHandlingService exceptionHandlingService,
@@ -40,7 +41,7 @@ public class AuthenticationService : IAuthenticationService
         IOptions<JwtOptions> jwtOptions,
         IMapper mapper,
         IEntityValidator entityValidator,
-        IFileRepository fileRepository, ILogger<AuthenticationService> logger)
+        IFileRepository fileRepository, ILogger<AuthenticationService> logger, IEmailConfirmationRequestRepository emailConfirmationRequestRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _userRepository = userRepository;
@@ -49,10 +50,11 @@ public class AuthenticationService : IAuthenticationService
         _entityValidator = entityValidator;
         _fileRepository = fileRepository;
         _logger = logger;
+        _emailConfirmationRequestRepository = emailConfirmationRequestRepository;
         _passwordHasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
     }
 
-    public async Task<BaseApiResponse> CreateUserAsync(CreateUserDto createUserDto)
+    public async Task<CreateUserResponseDto> CreateUserAsync(CreateUserDto createUserDto)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
@@ -68,16 +70,49 @@ public class AuthenticationService : IAuthenticationService
                 throw new ServiceException(StatusCodes.Status409Conflict, "A user with this email already exists.");
             }
 
-            var user = User.Create(createUserDto.Email, createUserDto.FullName, createUserDto.Password, null);
+            var user = User.Create(createUserDto.Email, createUserDto.FullName, false, createUserDto.Password, null);
             SetHashedPassword(user);
 
             await _userRepository.AddAsync(user);
             await CreateRootDirectoryForUser(user);
             await _userRepository.UpdateAsync(user, user.Id);
 
-            return BaseApiResponse.Create("Successfully created user");
+            await CreateEmailConfirmationAsync(user.Id);
+
+            return CreateUserResponseDto.Create("Successfully created user", user.Id);
         }, "Error when creating user");
     }
+
+    private async Task CreateEmailConfirmationAsync(Guid userId)
+    {
+        try
+        {
+            var expirationTime = DateTime.Now.AddMinutes(15);
+            var confirmationCode = GenerateRandomCode(5);
+
+            var newEmailConfirmationRequest = EmailConfirmationRequest.Create(
+                userId,
+                expirationTime,
+                false,
+                confirmationCode
+            );
+
+            await _emailConfirmationRequestRepository.AddAsync(newEmailConfirmationRequest);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error when creating email confirmation request");
+        }
+    }
+
+    private string GenerateRandomCode(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, length)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
 
     public async Task<AuthenticateUserResponseDto> AuthenticateUserAsync(AuthenticateUserDto authenticateUserDto)
     {
@@ -91,9 +126,12 @@ public class AuthenticationService : IAuthenticationService
             }
 
             await _entityValidator.ValidatePasswordAsync(authenticateUserDto.Password, user);
+            
+            if (!user.EmailConfirmed)
+                return AuthenticateUserResponseDto.Create("You need to confirm your email before proceding", "", false, user.Id);
 
             var jwtToken = GenerateJwtToken(user);
-            return AuthenticateUserResponseDto.Create("Successful authentication", jwtToken);
+            return AuthenticateUserResponseDto.Create("Successful authentication", jwtToken, true, user.Id);
         }, "Error when authenticating user");
     }
 
@@ -122,6 +160,7 @@ public class AuthenticationService : IAuthenticationService
                 user = User.Create(
                     email: payload.Email,
                     fullName: payload.Name,
+                    emailConfirmed: true,
                     password: generatedPassword,
                     payload.Subject
                 );
@@ -134,7 +173,7 @@ public class AuthenticationService : IAuthenticationService
             }
 
             var jwtToken = GenerateJwtToken(user);
-            return AuthenticateUserResponseDto.Create("Google login successful", jwtToken);
+            return AuthenticateUserResponseDto.Create("Google login successful", jwtToken, true, user.Id);
         }, "Error when authenticating with Google");
     }
 
@@ -146,6 +185,100 @@ public class AuthenticationService : IAuthenticationService
             var mappedUser = _mapper.Map<GetUserDto>(user);
             return GetUserResponseDto.Create("Successfully retrieved user", mappedUser);
         }, "Error when getting user");
+    }
+
+    public async Task<CheckIfUserHasEmailConfirmationRequestsResponse> CheckIfUserHasEmailConfirmationRequests(Guid userId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            var emailConfirmationRequests = (await _emailConfirmationRequestRepository.FindAsync((ecr) =>
+                ecr.UserId == user.Id && !ecr.Confirmed && ecr.ExpiresAt > DateTime.Now));
+
+            if (emailConfirmationRequests.Any())
+            {
+                return CheckIfUserHasEmailConfirmationRequestsResponse.Create("Found email confirmation requests",
+                    true);
+            }
+            
+            return CheckIfUserHasEmailConfirmationRequestsResponse.Create("Not found email confirmation requests",
+                false);
+        }, "Error when checking for email confirmation requests");
+    }
+    
+    public async Task<BaseApiResponse> CreateEmailConfirmationRequestForUser(Guid userId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            if (user.EmailConfirmed)
+            {
+                throw new ServiceException(StatusCodes.Status409Conflict, "Email already confirmed");
+            }
+
+            var emailConfirmationRequests = (await _emailConfirmationRequestRepository.FindAsync((ecr) =>
+                ecr.UserId == user.Id && !ecr.Confirmed && ecr.ExpiresAt > DateTime.Now));
+
+            if (emailConfirmationRequests.Any())
+            {
+                throw new ServiceException(StatusCodes.Status409Conflict, "Already have a pending email confirmation request");
+            }
+
+            await CreateEmailConfirmationAsync(user.Id);
+
+            return BaseApiResponse.Create("Succesfully created email cofirmation request");
+        }, "Error when creating email confirmation request");
+    }
+    
+    public async Task<BaseApiResponse> VerifyEmailConfirmationCodeAsync(Guid userId, string code)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
+            }
+
+            if (user.EmailConfirmed)
+            {
+                throw new ServiceException(StatusCodes.Status409Conflict, "Email already confirmed");
+            }
+
+            var emailConfirmationRequests = (await _emailConfirmationRequestRepository.FindAsync((ecr) =>
+                ecr.UserId == user.Id && !ecr.Confirmed && ecr.ExpiresAt > DateTime.Now));
+
+            var confirmationRequests = emailConfirmationRequests as EmailConfirmationRequest[] ?? emailConfirmationRequests.ToArray();
+            if (!confirmationRequests.Any())
+            {
+                throw new ServiceException(StatusCodes.Status400BadRequest, "You have no incoming confirmation codes");
+            }
+
+            var emailConfirmation = confirmationRequests.First();
+
+            if (emailConfirmation.CodeToVerify != code)
+            {
+                throw new ServiceException(StatusCodes.Status400BadRequest, "Invalid code");
+            }
+
+            user.EmailConfirmed = true;
+            await _userRepository.UpdateAsync(user, user.Id);
+
+            emailConfirmation.Confirmed = true;
+            await _emailConfirmationRequestRepository.UpdateAsync(emailConfirmation, emailConfirmation.Id);
+            
+            return BaseApiResponse.Create("Succesfully verified confirmation code");
+        }, "Error when checking for email confirmation code");
     }
 
     private void SetHashedPassword(User user)

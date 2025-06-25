@@ -30,6 +30,7 @@ public class TaskVaultDevContext : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<NotificationType> NotificationTypes { get; set; }
     public DbSet<NotificationStatus> NotificationStatuses { get; set; }
+    public DbSet<EmailConfirmationRequest> EmailConfirmationRequests { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -245,5 +246,11 @@ public class TaskVaultDevContext : DbContext
             .WithMany()
             .HasForeignKey(tf => tf.FileId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<EmailConfirmationRequest>()
+            .HasOne(ecr => ecr.User)
+            .WithMany(u => u.EmailConfirmationRequests)
+            .HasForeignKey(ecr => ecr.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

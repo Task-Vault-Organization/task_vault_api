@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskVault.DataAccess.Context;
 
@@ -10,9 +11,11 @@ using TaskVault.DataAccess.Context;
 namespace TaskVault.DataAccess.Migrations
 {
     [DbContext(typeof(TaskVaultDevContext))]
-    partial class TaskVaultDevContextModelSnapshot : ModelSnapshot
+    [Migration("20250625123433_ModifiedDbToAccomodateEmailConfirmation")]
+    partial class ModifiedDbToAccomodateEmailConfirmation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -99,10 +102,8 @@ namespace TaskVault.DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CodeToVerify")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                    b.Property<int>("CodeToVerify")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("Confirmed")
                         .HasColumnType("INTEGER");

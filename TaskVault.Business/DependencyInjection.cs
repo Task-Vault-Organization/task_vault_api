@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using TaskVault.Business.Features.Email.Services;
 using TaskVault.Business.Features.FileStorage.Services;
 using TaskVault.Business.Features.Llm.Services;
 using TaskVault.Business.Features.Notifications.Services;
 using TaskVault.Business.Features.Tasks.Services;
 using TaskVault.Business.Shared.Services;
 using TaskVault.Business.Shared.Validator;
+using TaskVault.Contracts.Features.Email.Abstractions;
 using TaskVault.Contracts.Features.FileStorage.Abstractions;
 using TaskVault.Contracts.Features.Llm.Abstractions;
 using TaskVault.Contracts.Features.Notifications.Abstractions;
@@ -32,6 +34,7 @@ public static class DependencyInjection
         services.AddTransient<INotificationsService, NotificationsService>();
         services.AddTransient<IFileHelpersService, FileHelpersService>();
         services.AddTransient<ILlmService, LlmService>();
+        services.AddTransient<IEmailService, EmailService>();
         return services;
     }
 }

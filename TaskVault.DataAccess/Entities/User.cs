@@ -23,6 +23,10 @@ public class User
 
     public required bool EmailConfirmed { get; set; } = false;
 
+    public Guid? ProfilePhotoId { get; set; }
+
+    public string? GoogleProfilePhotoUrl { get; set; } = string.Empty;
+
     public virtual IEnumerable<File>? Files { get; set; }
 
     public virtual IEnumerable<Task>? Tasks { get; set; }

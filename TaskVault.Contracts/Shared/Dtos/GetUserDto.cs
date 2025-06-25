@@ -6,4 +6,6 @@ public class GetUserDto
     
     public required string Email { get; set; }
     public Guid? RootDirectoryId { get; set; }
+    public Guid? ProfilePhotoId { get; set; }
+    public string? GoogleProfilePhotoUrl { get; set; } = string.Empty;
 }

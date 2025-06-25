@@ -12,6 +12,7 @@ using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Business.Shared.Options;
 using TaskVault.Contracts.Features.Authentication.Abstractions;
 using TaskVault.Contracts.Features.Authentication.Dtos;
+using TaskVault.Contracts.Features.Email.Abstractions;
 using TaskVault.Contracts.Shared.Abstractions.Services;
 using TaskVault.Contracts.Shared.Dtos;
 using TaskVault.Contracts.Shared.Validator.Abstractions;
@@ -34,6 +35,7 @@ public class AuthenticationService : IAuthenticationService
     private const int RootFolderFileTypeId = 8;
     private readonly Microsoft.AspNetCore.Identity.PasswordHasher<User> _passwordHasher;
     private readonly IEmailConfirmationRequestRepository _emailConfirmationRequestRepository;
+    private readonly IEmailService _emailService;
 
     public AuthenticationService(
         IExceptionHandlingService exceptionHandlingService,
@@ -41,7 +43,7 @@ public class AuthenticationService : IAuthenticationService
         IOptions<JwtOptions> jwtOptions,
         IMapper mapper,
         IEntityValidator entityValidator,
-        IFileRepository fileRepository, ILogger<AuthenticationService> logger, IEmailConfirmationRequestRepository emailConfirmationRequestRepository)
+        IFileRepository fileRepository, ILogger<AuthenticationService> logger, IEmailConfirmationRequestRepository emailConfirmationRequestRepository, IEmailService emailService)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _userRepository = userRepository;
@@ -51,6 +53,7 @@ public class AuthenticationService : IAuthenticationService
         _fileRepository = fileRepository;
         _logger = logger;
         _emailConfirmationRequestRepository = emailConfirmationRequestRepository;
+        _emailService = emailService;
         _passwordHasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
     }
 
@@ -98,6 +101,27 @@ public class AuthenticationService : IAuthenticationService
             );
 
             await _emailConfirmationRequestRepository.AddAsync(newEmailConfirmationRequest);
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null)
+            {
+                var subject = "Verify your email address - TaskVault";
+                var htmlMessage = $@"
+                    <div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;'>
+                        <div style='max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+                            <h2 style='color: #333;'>Welcome to <span style='color: #4F46E5;'>TaskVault</span>!</h2>
+                            <p style='font-size: 16px; color: #555;'>Please use the code below to verify your email address. This code is valid for 15 minutes.</p>
+                            <div style='margin: 20px 0; text-align: center;'>
+                                <span style='display: inline-block; background-color: #4F46E5; color: white; font-size: 24px; padding: 10px 20px; border-radius: 8px; letter-spacing: 2px;'>{confirmationCode}</span>
+                            </div>
+                            <p style='font-size: 14px; color: #999;'>If you did not sign up for TaskVault, you can safely ignore this email.</p>
+                            <hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;' />
+                            <p style='font-size: 12px; color: #ccc; text-align: center;'>TaskVault Inc. | Do not reply to this email</p>
+                        </div>
+                    </div>";
+
+                await _emailService.SendEmailAsync(user.Email, subject, htmlMessage);
+            }
         }
         catch (Exception ex)
         {
@@ -164,6 +188,8 @@ public class AuthenticationService : IAuthenticationService
                     password: generatedPassword,
                     payload.Subject
                 );
+
+                user.GoogleProfilePhotoUrl = payload.Picture;
 
                 SetHashedPassword(user);
 

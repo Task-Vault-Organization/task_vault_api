@@ -86,6 +86,7 @@ builder.Services.AddSwaggerGen((c) =>
 builder.Services.Configure<AwsOptions>(builder.Configuration.GetSection("Aws"));
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<FileUploadOptions>(builder.Configuration.GetSection("FileUpload"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("EmailSettings"));
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 

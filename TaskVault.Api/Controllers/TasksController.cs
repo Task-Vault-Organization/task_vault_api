@@ -79,4 +79,11 @@ public class TasksController : Controller
         var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
         return Ok(await _taskService.CreateTaskSubmissionAsync(userEmail, createTaskSubmissionDto));
     }
+    
+    [HttpPost("resolve-submission")]
+    public async Task<IActionResult> ResolveTaskSubmissionAsync([FromBody] ResolveTaskSubmissionDto resolveTaskSubmissionDto)
+    {
+        var userEmail = AuthorizationHelper.GetUserEmailFromClaims(User);
+        return Ok(await _taskService.ResolveTaskSubmissionAsync(userEmail, resolveTaskSubmissionDto));
+    }
 }

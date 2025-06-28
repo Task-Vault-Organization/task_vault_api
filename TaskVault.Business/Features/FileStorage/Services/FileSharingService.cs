@@ -56,66 +56,52 @@ public class FileSharingService : IFileSharingService
             await _entityValidator.EnsureFileOwnerAsync(file, fromUser);
 
             var ownerIds = file.Owners?.Select(o => o.Id).ToHashSet() ?? new HashSet<Guid>();
-            var toUserSet = dto.ToUsers.ToHashSet();
-            var usersToRemove = ownerIds
-                .Where(ownerId => ownerId != fromUser.Id && !toUserSet.Contains(ownerId))
-                .ToList();
 
-            foreach (var userId in usersToRemove)
+            var toUsers = new List<User>();
+            foreach (var email in dto.ToUsersEmails)
             {
-                file.Owners = file.Owners?.Where(o => o.Id != userId).ToList();
-                await _fileRepository.UpdateAsync(file, file.Id);
-
-                var entry = (await _directoryEntryRepository.FindAsync(de =>
-                    de.FileId == file.Id && de.UserId == userId)).FirstOrDefault();
-                if (entry != null)
-                    await _directoryEntryRepository.RemoveAsync(entry);
-
-                if (file.IsDirectory)
-                {
-                    var childEntries = await _directoryEntryRepository.FindAsync(de =>
-                        de.DirectoryId == file.Id && de.UserId == userId);
-
-                    foreach (var childEntry in childEntries)
-                        await _directoryEntryRepository.RemoveAsync(childEntry);
-                }
+                var user = await _entityValidator.GetUserOrThrowAsync(email);
+                toUsers.Add(user);
             }
+
+            var toUserIds = toUsers.Select(u => u.Id).ToHashSet();
 
             var existingRequests = await _fileShareRequestRepository.FindAsync(r =>
                 r.FromId == fromUser.Id &&
-                dto.ToUsers.Contains(r.ToId) &&
+                toUserIds.Contains(r.ToId) &&
                 r.FileId == file.Id &&
                 r.StatusId == 1);
 
             var existingToUserIds = existingRequests.Select(r => r.ToId).ToHashSet();
             var newRequests = new List<FileShareRequest>();
 
-            foreach (var toUserId in dto.ToUsers)
+            foreach (var toUser in toUsers)
             {
-                if (toUserId == fromUser.Id || existingToUserIds.Contains(toUserId) || ownerIds.Contains(toUserId))
+                if (toUser.Id == fromUser.Id || existingToUserIds.Contains(toUser.Id) || ownerIds.Contains(toUser.Id))
                     continue;
-
-                await _entityValidator.GetUserOrThrowAsync(toUserId);
 
                 var request = FileShareRequest.Create(
                     fromId: fromUser.Id,
-                    toId: toUserId,
+                    toId: toUser.Id,
                     fileId: file.Id,
                     statusId: 1);
 
                 newRequests.Add(request);
             }
 
-            if (newRequests.Count == 0 && usersToRemove.Count == 0)
+            if (newRequests.Count == 0)
                 throw new ServiceException(StatusCodes.Status409Conflict, "All the specified users already have this file shared with them");
 
             if (newRequests.Count > 0)
                 await _fileShareRequestRepository.AddRangeAsync(newRequests);
-            
+
             foreach (var fileShareRequest in newRequests)
             {
-                var notificationContent = AcceptFileShareNotificationContent.Create(_mapper.Map<GetUserDto>(fromUser),
-                    _mapper.Map<GetFileDto>(file), fileShareRequest.Id);
+                var notificationContent = AcceptFileShareNotificationContent.Create(
+                    _mapper.Map<GetUserDto>(fromUser),
+                    _mapper.Map<GetFileDto>(file),
+                    fileShareRequest.Id);
+
                 var notificationJson = JsonConvert.SerializeObject(notificationContent);
                 var notification = Notification.Create(Guid.NewGuid(), fileShareRequest.ToId, DateTime.Now, notificationJson, 1, 1);
 

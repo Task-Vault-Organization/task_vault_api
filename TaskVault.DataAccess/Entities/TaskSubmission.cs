@@ -1,4 +1,6 @@
-﻿namespace TaskVault.DataAccess.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TaskVault.DataAccess.Entities;
 
 public class TaskSubmission
 {
@@ -15,6 +17,9 @@ public class TaskSubmission
     public virtual Task? Task { get; set; }
 
     public virtual User? SubmittedByUser { get; set; }
+
+    [MaxLength(200)]
+    public string? DissaproveComment { get; set; }
 
     public static TaskSubmission Create(Guid id, Guid taskId, Guid submittedById)
     {

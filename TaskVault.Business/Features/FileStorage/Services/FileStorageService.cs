@@ -34,6 +34,7 @@ public class FileStorageService : IFileStorageService
     private readonly IDirectoryEntryRepository _directoryEntryRepository;
     private readonly FileUploadOptions _fileUploadOptions;
     private readonly IFileHelpersService _fileHelpersService;
+    private readonly IFileCategoryRepository _fileCategoryRepository;
     
     public FileStorageService(
         IExceptionHandlingService exceptionHandlingService,
@@ -44,7 +45,7 @@ public class FileStorageService : IFileStorageService
         TaskVaultDevContext dbContext,
         ILogger<FileStorageService> logger,
         IMapper mapper,
-        IEntityValidator entityValidator, IDirectoryEntryRepository directoryEntryRepository, IOptions<FileUploadOptions> fileUploadOptions, IFileHelpersService fileHelpersService)
+        IEntityValidator entityValidator, IDirectoryEntryRepository directoryEntryRepository, IOptions<FileUploadOptions> fileUploadOptions, IFileHelpersService fileHelpersService, IFileCategoryRepository fileCategoryRepository)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _s3Client = s3Client;
@@ -57,10 +58,11 @@ public class FileStorageService : IFileStorageService
         _entityValidator = entityValidator;
         _directoryEntryRepository = directoryEntryRepository;
         _fileHelpersService = fileHelpersService;
+        _fileCategoryRepository = fileCategoryRepository;
         _fileUploadOptions = fileUploadOptions.Value;
     }
 
-    public async Task<BaseApiResponse> UploadFileAsync(string userEmail, UploadFileDto uploadFileDto)
+    public async Task<UploadFileResponseDto> UploadFileAsync(string userEmail, UploadFileDto uploadFileDto)
     {
         return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
         {
@@ -77,6 +79,8 @@ public class FileStorageService : IFileStorageService
             var existingEntries = (await _directoryEntryRepository.FindAsync(de =>
                 de.UserId == user.Id && de.DirectoryId == directoryId)).ToList();
 
+            List<GetFileDto> uploadedFIles = new List<GetFileDto>();
+
             foreach (var formFile in uploadFileDto.Files)
             {
                 if (formFile.Length > _fileUploadOptions.MaxFileToUploadSize)
@@ -85,6 +89,10 @@ public class FileStorageService : IFileStorageService
                     continue;
                 }
 
+                if (user.TotalFileSize + formFile.Length > _fileUploadOptions.MaxTotalFileSize)
+                    throw new ServiceException(StatusCodes.Status400BadRequest,
+                        $"You have reached the storage limit of {(user.TotalFileSize / (1024.0 * 1024.0)):F2} MB");
+
                 var fileId = Guid.NewGuid();
 
                 await _fileHelpersService.UploadToS3Async(formFile, fileId);
@@ -92,21 +100,27 @@ public class FileStorageService : IFileStorageService
                 var fileType = await GetFileTypeOrThrowAsync(formFile.ContentType);
                 var fileName = _fileHelpersService.GenerateUniqueFileName(formFile.FileName, existingEntries);
                 var newFile = CreateFileEntity(fileId, formFile.Length, fileName, user.Id, fileType.Id);
-                
+
                 if (foundDirectory.Owners != null)
                 {
                     newFile.Owners = new List<User>(foundDirectory.Owners);
                 }
                 else newFile.Owners = new List<User>() { user };
-                
+
                 var log = FileHistoryLog.Create($"{user.Email} uploaded this file", _mapper.Map<GetUserDto>(user));
                 FileHistoryHelper.AddFileHistoryLog(newFile, log);
 
                 await _fileRepository.AddAsync(newFile);
+                uploadedFIles.Add(_mapper.Map<GetFileDto>(newFile));
+
                 foreach (var owner in newFile.Owners)
                 {
                     await _fileHelpersService.CreateDirectoryEntryAsync(newFile, owner.Id, foundDirectory.Id);
                 }
+
+                user.TotalFileSize += formFile.Length;
+                _dbContext.Users.Update(user);
+                await _dbContext.SaveChangesAsync();
             }
 
             if (fileNameWarnings.Any())
@@ -114,12 +128,12 @@ public class FileStorageService : IFileStorageService
                 var warning = $"Could not upload the following files: {string.Join(", ", fileNameWarnings)}, they exceed the maximum file size of {(int)(_fileUploadOptions.MaxFileToUploadSize / (1024.0 * 1024.0))} MB";
 
                 if (fileNameWarnings.Count == uploadFileDto.Files.Count())
-                    return BaseApiResponse.Create("Upload finished with warnings", [warning]);
+                    return UploadFileResponseDto.Create("Upload finished with warnings", [warning], uploadedFIles);
 
-                return BaseApiResponse.Create("Successfully uploaded files with warnings", [warning]);
+                return UploadFileResponseDto.Create("Successfully uploaded files with warnings", [warning], uploadedFIles);
             }
 
-            return BaseApiResponse.Create("Successfully uploaded files");
+            return UploadFileResponseDto.Create("Successfully uploaded files", [], uploadedFIles);
         }, "Error when uploading files");
     }
 
@@ -143,21 +157,60 @@ public class FileStorageService : IFileStorageService
             var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
             var file = await _entityValidator.GetFileOrThrowAsync(fileId);
 
-            var request = new GetObjectRequest
+            // if (file.Owners == null || !file.Owners.Any(o => o.Id == user.Id))
+            // {
+            //     _entityValidator.ValidateOwnership(file, user);
+            // }
+
+            if (!file.IsDirectory)
             {
-                BucketName = _awsOptions.BucketName,
-                Key = fileId.ToString()
-            };
+                var request = new GetObjectRequest
+                {
+                    BucketName = _awsOptions.BucketName,
+                    Key = fileId.ToString()
+                };
 
-            using var response = await _s3Client.GetObjectAsync(request);
-            using var responseStream = response.ResponseStream;
-            await using var memoryStream = new MemoryStream();
-            await responseStream.CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
+                using var response = await _s3Client.GetObjectAsync(request);
+                using var responseStream = response.ResponseStream;
+                await using var memoryStream = new MemoryStream();
+                await responseStream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
 
-            var contentType = response.Headers.ContentType;
-            return BaseApiFileResponse.Create(memoryStream, contentType);
-        }, "Error when downloading file");
+                var contentType = response.Headers.ContentType;
+                return BaseApiFileResponse.Create(memoryStream, contentType);
+            }
+
+            var entries = await _directoryEntryRepository.FindAsync(de =>
+                de.DirectoryId == file.Id && de.UserId == user.Id);
+
+            var filesToZip = entries
+                .Select(de => de.File)
+                .Where(f => f != null && !f.IsDirectory)
+                .ToList();
+
+            await using var zipStream = new MemoryStream();
+            using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var childFile in filesToZip)
+                {
+                    var request = new GetObjectRequest
+                    {
+                        BucketName = _awsOptions.BucketName,
+                        Key = childFile.Id.ToString()
+                    };
+
+                    using var s3Response = await _s3Client.GetObjectAsync(request);
+                    using var fileStream = s3Response.ResponseStream;
+                    var entry = archive.CreateEntry(childFile.Name, System.IO.Compression.CompressionLevel.Optimal);
+
+                    await using var entryStream = entry.Open();
+                    await fileStream.CopyToAsync(entryStream);
+                }
+            }
+
+            zipStream.Position = 0;
+            return BaseApiFileResponse.Create(zipStream, "application/zip");
+        }, "Error when downloading file or folder");
     }
 
     public async Task<BaseApiResponse> CreateDirectoryAsync(string userEmail, CreateDirectoryDto createDirectoryDto)
@@ -371,6 +424,60 @@ public class FileStorageService : IFileStorageService
                 throw;
             }
         }, "Error when deleting file");
+    }
+    
+    public async Task<BaseApiResponse> CreateCustomFileCategoryAsync(string userEmail, CreateCustomFileCategoryDto dto)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            await _entityValidator.GetUserOrThrowAsync(userEmail);
+
+            var trimmed = dto.CategoryName.Trim();
+
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 3 || trimmed.Length > 20)
+            {
+                throw new ServiceException(StatusCodes.Status400BadRequest, "Category name must be between 3 and 20 characters.");
+            }
+
+            var existing = await _fileCategoryRepository.FindAsync(x => x.Name.ToLower() == trimmed.ToLower());
+            if (existing.Any())
+            {
+                throw new ServiceException(StatusCodes.Status409Conflict, "Category with this name already exists.");
+            }
+
+            var newCategory = new FileCategory
+            {
+                Name = trimmed,
+                Legacy = false
+            };
+
+            await _fileCategoryRepository.AddAsync(newCategory);
+
+            return BaseApiResponse.Create("Successfully created category");
+        }, "Error creating file category");
+    }
+
+    public async Task<BaseApiResponse> DeleteCustomFileCategoryAsync(string userEmail, int categoryId)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            await _entityValidator.GetUserOrThrowAsync(userEmail);
+
+            var category = (await _fileCategoryRepository.FindAsync(x => x.Id == categoryId)).FirstOrDefault();
+            if (category == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "Category not found.");
+            }
+
+            if (category.Legacy == true)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden, "Cannot delete a legacy category.");
+            }
+
+            await _fileCategoryRepository.RemoveAsync(category);
+
+            return BaseApiResponse.Create("Successfully deleted category");
+        }, "Error deleting file category");
     }
 
     private async Task DeleteFolderInternalAsync(File rootFolder)

@@ -19,15 +19,17 @@ public class EntityValidator : IEntityValidator
     private readonly ITasksRepository _tasksRepository;
     private readonly PasswordHasher<User> _passwordHasher = new();
     private readonly FileUploadOptions _fileUploadOptions;
+    private readonly ITaskItemRepository _taskItemRepository;
 
     public EntityValidator(
         IRepository<User> userRepository,
         IFileRepository fileRepository,
-        ITasksRepository tasksRepository, IOptions<FileUploadOptions> fileUploadOptions)
+        ITasksRepository tasksRepository, IOptions<FileUploadOptions> fileUploadOptions, ITaskItemRepository taskItemRepository)
     {
         _userRepository = userRepository;
         _fileRepository = fileRepository;
         _tasksRepository = tasksRepository;
+        _taskItemRepository = taskItemRepository;
         _fileUploadOptions = fileUploadOptions.Value;
     }
 
@@ -36,6 +38,15 @@ public class EntityValidator : IEntityValidator
         var user = (await _userRepository.FindAsync(u => u.Email == email)).FirstOrDefault();
         if (user == null) throw new ServiceException(StatusCodes.Status404NotFound, "User not found");
         return user;
+    }
+    
+    public async Task<TaskItem> GetTaskItemOrThrowAsync(Guid taskItemId)
+    {
+        var taskItem = await _taskItemRepository.GetByIdAsync(taskItemId);
+        if (taskItem == null)
+            throw new ServiceException(StatusCodes.Status404NotFound, "Task item not found");
+
+        return taskItem;
     }
 
     public async Task<User> GetUserOrThrowAsync(Guid userId)

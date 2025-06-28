@@ -8,4 +8,5 @@ public class GetUserDto
     public Guid? RootDirectoryId { get; set; }
     public Guid? ProfilePhotoId { get; set; }
     public string? GoogleProfilePhotoUrl { get; set; } = string.Empty;
+    public required double TotalFileSize { get; set; }
 }

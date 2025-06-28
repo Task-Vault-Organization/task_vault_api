@@ -50,7 +50,7 @@ builder.Services.AddAuthentication(options =>
         
     });
 builder.Services.AddControllers();
-builder.Services.AddBusinessLogic();
+builder.Services.AddBusinessLogic(builder.Configuration);
 builder.Services.AddDataAccess(builder.Configuration);
 builder.Services.AddS3Storage();
 builder.Services.AddGlobalErrorHandling();

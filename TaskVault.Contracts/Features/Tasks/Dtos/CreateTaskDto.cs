@@ -14,5 +14,5 @@ public class CreateTaskDto
 
     public required IEnumerable<CreateTaskItemDto> TaskItems { get; set; }
 
-    public IEnumerable<Guid>? AssigneesIds { get; set; }
+    public IEnumerable<string>? AssigneesEmails { get; set; }
 }

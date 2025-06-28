@@ -2,6 +2,6 @@
 
 public class CreateOrUpdateFileShareRequestDto
 {
-    public required IEnumerable<Guid> ToUsers { get; set; }
+    public required IEnumerable<string> ToUsersEmails { get; set; }
     public required Guid FileId { get; set; }
 }

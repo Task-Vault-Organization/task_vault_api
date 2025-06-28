@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using TaskVault.Business.Features.Email.Services;
 using TaskVault.Business.Features.FileStorage.Services;
 using TaskVault.Business.Features.Llm.Services;
@@ -20,7 +21,7 @@ namespace TaskVault.Business;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddBusinessLogic(this IServiceCollection services)
+    public static IServiceCollection AddBusinessLogic(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddAutoMapper(typeof(DependencyInjection));
         services.AddTransient<IExceptionHandlingService, ExceptionHandlingService>();
@@ -28,13 +29,25 @@ public static class DependencyInjection
         services.AddTransient<IAuthenticationService, AuthenticationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<ITaskService, TaskService>();
-        services.AddTransient<IUsersService, UsersService>();
         services.AddScoped<IEntityValidator, EntityValidator>();
         services.AddScoped<IFileSharingService, FileSharingService>();
         services.AddTransient<INotificationsService, NotificationsService>();
         services.AddTransient<IFileHelpersService, FileHelpersService>();
         services.AddTransient<ILlmService, LlmService>();
         services.AddTransient<IEmailService, EmailService>();
+        services.AddTransient<IUsersService, UsersService>();
+
+        services.AddScoped<ILlmProvider>(sp =>
+        {
+            var provider = configuration["Llm:Provider"];
+            return provider switch
+            {
+                "OpenAI" => new OpenAiLlmProvider(configuration),
+                "Ollama" => new OllamaLlmProvider(configuration),
+                _ => throw new NotSupportedException($"Unsupported LLM provider: {provider}")
+            };
+        });
+
         return services;
     }
 }

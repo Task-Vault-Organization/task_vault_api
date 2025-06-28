@@ -1,7 +1,11 @@
-﻿using AutoMapper;
+﻿using System.Xml;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json;
+using TaskVault.Business.Features.Notifications.Models;
 using TaskVault.Business.Shared.Exceptions;
 using TaskVault.Contracts.Features.FileStorage.Dtos;
+using TaskVault.Contracts.Features.Notifications.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Abstractions;
 using TaskVault.Contracts.Features.Tasks.Dtos;
 using TaskVault.Contracts.Shared.Abstractions.Services;
@@ -26,6 +30,7 @@ public class TaskService : ITaskService
     private readonly IRepository<User> _userRepository;
     private readonly ITaskSubmissionTaskItemFileCommentRepository _commentRepository;
     private readonly IFileRepository _fileRepository;
+    private readonly INotificationsService _notificationsService;
 
     public TaskService(
         IExceptionHandlingService exceptionHandlingService,
@@ -34,7 +39,7 @@ public class TaskService : ITaskService
         IMapper mapper,
         ITaskSubmissionTaskItemFileRepository taskSubmissionTaskItemFileRepository,
         ITaskSubmissionRepository taskSubmissionRepository,
-        IEntityValidator entityValidator, IRepository<User> userRepository, ITaskSubmissionTaskItemFileCommentRepository commentRepository, IFileRepository fileRepository)
+        IEntityValidator entityValidator, IRepository<User> userRepository, ITaskSubmissionTaskItemFileCommentRepository commentRepository, IFileRepository fileRepository, INotificationsService notificationsService)
     {
         _exceptionHandlingService = exceptionHandlingService;
         _taskItemRepository = taskItemRepository;
@@ -46,6 +51,7 @@ public class TaskService : ITaskService
         _userRepository = userRepository;
         _commentRepository = commentRepository;
         _fileRepository = fileRepository;
+        _notificationsService = notificationsService;
     }
 
     public async Task<BaseApiResponse> CreateTaskAsync(string userEmail, CreateTaskDto createTask)
@@ -57,7 +63,7 @@ public class TaskService : ITaskService
             var newTask = Task.Create(taskId, createTask.Title, createTask.Description, user.Id);
             if (createTask.DeadlineAt != null) newTask.DeadlineAt = createTask.DeadlineAt;
 
-            AddAssignees(createTask.AssigneesIds, newTask);
+            await AddAssignees(createTask.AssigneesEmails, newTask);
             await _tasksRepository.AddAsync(newTask);
             AddTaskItems(createTask.TaskItems, taskId);
 
@@ -92,15 +98,19 @@ public class TaskService : ITaskService
             {
                 var dto = _mapper.Map<GetOwnedTaskDto>(t);
 
+                dto.Owner = _mapper.Map<GetUserDto>(t.Owner);
+
                 var assigneeDtos = t.Assignees?.Select(assignee =>
                 {
-                    var submission = t.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == assignee.Id);
+                    var submission =
+                        (_taskSubmissionRepository.Find(ts =>
+                            ts.TaskId == t.Id && ts.SubmittedById == assignee.Id)).FirstOrDefault();
                     return new GetTaskSubmissionUserDto
                     {
                         Id = assignee.Id,
                         Email = assignee.Email,
                         RootDirectoryId = assignee.RootDirectoryId,
-                        Approved = submission?.Approved
+                        Approved = submission?.Approved,
                     };
                 }) ?? Enumerable.Empty<GetTaskSubmissionUserDto>();
 
@@ -140,7 +150,10 @@ public class TaskService : ITaskService
             {
                 var dto = _mapper.Map<GetAssignedTaskDto>(t);
 
-                var submission = t.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == user.Id);
+                dto.Owner = _mapper.Map<GetUserDto>(t.Owner);
+
+                var submission =
+                    (await _taskSubmissionRepository.FindAsync((ts) => ts.TaskId == t.Id && ts.SubmittedById == user.Id)).FirstOrDefault();
                 var comments =
                     await _commentRepository.FindAsync(c => submission != null && c.TaskSubmissionId == submission.Id);
 
@@ -185,13 +198,14 @@ public class TaskService : ITaskService
 
             var assigneeDtos = task.Assignees?.Select(assignee =>
             {
-                var submission = task.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == assignee.Id);
+                var submission =
+                    _taskSubmissionRepository.Find(TS => TS.TaskId == task.Id && TS.SubmittedById == assignee.Id).FirstOrDefault();
                 return new GetTaskSubmissionUserDto
                 {
                     Id = assignee.Id,
                     Email = assignee.Email,
                     RootDirectoryId = assignee.RootDirectoryId,
-                    Approved = submission?.Approved
+                    Approved = submission?.Approved,
                 };
             }) ?? Enumerable.Empty<GetTaskSubmissionUserDto>();
 
@@ -250,12 +264,9 @@ public class TaskService : ITaskService
                     Comments = comments
                 };
             }))).ToList();
-
-            var submission = task.TaskSubmissions?.FirstOrDefault(ts => ts.SubmittedById == user.Id);
-            var allComments = await _commentRepository.FindAsync(c => submission != null && c.TaskSubmissionId == submission.Id);
-
-            dto.Approved = submission?.Approved;
-            dto.NoComments = allComments.Count();
+            
+            dto.Approved = taskSubmission?.Approved;
+            dto.DissaprovedComment = taskSubmission?.DissaproveComment;
 
             return GetAssignedTaskResponseDto.Create("Successfully retrieved assigned task", dto);
         }, "Error when retrieving assigned task");
@@ -304,11 +315,16 @@ public class TaskService : ITaskService
                 {
                     await _taskSubmissionTaskItemFileRepository.RemoveAsync(file);
                 }
+
+                existingSubmission.Approved = null;
+                existingSubmission.DissaproveComment = null;
+                await _taskSubmissionRepository.UpdateAsync(existingSubmission, existingSubmission.Id);
             }
             else
             {
                 submissionId = Guid.NewGuid();
                 var submission = TaskSubmission.Create(submissionId, task.Id, user.Id);
+                submission.Approved = null;
                 await _taskSubmissionRepository.AddAsync(submission);
             }
 
@@ -329,6 +345,18 @@ public class TaskService : ITaskService
                     await _fileRepository.UpdateAsync(file, file.Id);
                 }
             }
+
+            var notificationContent = new GeneralInfoNotificationContent()
+            {
+                Message = $"{user.FullName} added new submission to task '{task.Title}'",
+                User = _mapper.Map<GetUserDto>(user),
+                TargetLink = $"task/owned/{task.Id}"
+            };
+
+            var notificationJson = JsonConvert.SerializeObject(notificationContent);
+            var notification = Notification.Create(Guid.NewGuid(), task.OwnerId, DateTime.Now, notificationJson, 2, 1);
+
+            await _notificationsService.SendAndSaveNotificationAsync(user.Id, notification);
 
             return BaseApiResponse.Create("Successfully submitted task submission");
         }, "Error when creating/updating task submission");
@@ -409,11 +437,66 @@ public class TaskService : ITaskService
                     };
                 });
                 dto.TaskItemFiles = files;
+                dto.DissaproveComment = sub?.DissaproveComment;
                 submissionDtos.Add(dto);
             }
 
             return GetTaskSubmissionsResponseDto.Create("Successfully retrieved assignee's submissions", submissionDtos);
         }, "Error when retrieving task submissions for assignee");
+    }
+
+    public async Task<BaseApiResponse> ResolveTaskSubmissionAsync(string userEmail, ResolveTaskSubmissionDto resolveTaskSubmissionDto)
+    {
+        return await _exceptionHandlingService.ExecuteWithExceptionHandlingAsync(async () =>
+        {
+            var user = await _entityValidator.GetUserOrThrowAsync(userEmail);
+            var taskSubmission = await _taskSubmissionRepository.GetTaskSubmissionByIdAsync(resolveTaskSubmissionDto.SubmissionId);
+            if (taskSubmission == null)
+            {
+                throw new ServiceException(StatusCodes.Status404NotFound, "Task submission not found");
+            }
+
+            if (taskSubmission.Task != null && taskSubmission.Task.OwnerId != user.Id)
+            {
+                throw new ServiceException(StatusCodes.Status403Forbidden, "Forbidden access to task");
+            }
+
+            taskSubmission.Approved = resolveTaskSubmissionDto.IsApproved;
+            if (!string.IsNullOrEmpty(resolveTaskSubmissionDto.DissaproveComment))
+            {
+                taskSubmission.DissaproveComment = resolveTaskSubmissionDto.DissaproveComment;
+            }
+
+            await _taskSubmissionRepository.UpdateAsync(taskSubmission, taskSubmission.Id);
+
+            GeneralInfoNotificationContent notificationContent = null!;
+
+            if (resolveTaskSubmissionDto.IsApproved)
+            {
+                notificationContent = new GeneralInfoNotificationContent()
+                {
+                    Message = $"{user.FullName} just approved your submission to the task '{taskSubmission.Task.Title}'",
+                    User = _mapper.Map<GetUserDto>(user),
+                    TargetLink = $"task/assigned/{taskSubmission.Task.Id}"
+                };
+            }
+            else
+            {
+                notificationContent = new GeneralInfoNotificationContent()
+                {
+                    Message = $"{user.FullName} reject your submission to '{taskSubmission.Task.Title}' Click here to see the reason",
+                    User = _mapper.Map<GetUserDto>(user),
+                    TargetLink = $"task/assigned/{taskSubmission.Task.Id}"
+                };
+            }
+
+            var notificationJson = JsonConvert.SerializeObject(notificationContent);
+            var notification = Notification.Create(Guid.NewGuid(), taskSubmission.SubmittedById, DateTime.Now, notificationJson, 2, 1);
+
+            await _notificationsService.SendAndSaveNotificationAsync(user.Id, notification);
+
+            return BaseApiResponse.Create("Successfully resolved task submission");
+        }, "Error when resolving task submission");
     }
 
     private async void AddTaskItems(IEnumerable<CreateTaskItemDto> taskItems, Guid taskId)
@@ -428,32 +511,48 @@ public class TaskService : ITaskService
         }
     }
 
-    private async void AddAssignees(IEnumerable<Guid>? assigneesIds, Task newTask)
+    private async System.Threading.Tasks.Task AddAssignees(IEnumerable<string>? assigneesEmails, Task newTask)
     {
-        if (assigneesIds != null)
-            foreach (var assigneesId in assigneesIds)
+        if (assigneesEmails != null)
+        {
+            var uniqueEmails = assigneesEmails
+                .Select(email => email.Trim().ToLower())
+                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Distinct();
+
+            var users = await _userRepository.FindAsync(u => uniqueEmails.Contains(u.Email.ToLower()));
+            var userDict = users.ToDictionary(u => u.Email.ToLower(), u => u);
+
+            var missingEmails = uniqueEmails.Except(userDict.Keys).ToList();
+            if (missingEmails.Any())
             {
-                var foundAssignee = (await _userRepository.FindAsync(u => u.Id == assigneesId)).FirstOrDefault();
-                if (foundAssignee != null)
+                throw new ServiceException(StatusCodes.Status400BadRequest, $"The following users do not exist: {string.Join(", ", missingEmails)}");
+            }
+
+            foreach (var user in users)
+            {
+                if (newTask.Assignees == null)
                 {
-                    if (newTask.Assignees == null)
-                    {
-                        newTask.Assignees = new List<User>() { foundAssignee };
-                    }
-                    else
-                    {
-                        newTask.Assignees.ToList().Add(foundAssignee);
-                    }
-                
-                    if (foundAssignee.Tasks == null)
-                    {
-                        foundAssignee.Tasks = new List<Task>() { newTask };
-                    }
-                    else
-                    {
-                        foundAssignee.Tasks.ToList().Add(newTask);
-                    }
+                    newTask.Assignees = new List<User> { user };
+                }
+                else
+                {
+                    var assignees = newTask.Assignees.ToList();
+                    assignees.Add(user);
+                    newTask.Assignees = assignees;
+                }
+
+                if (user.Tasks == null)
+                {
+                    user.Tasks = new List<Task> { newTask };
+                }
+                else
+                {
+                    var tasks = user.Tasks.ToList();
+                    tasks.Add(newTask);
+                    user.Tasks = tasks;
                 }
             }
+        }
     }
 }

@@ -21,4 +21,5 @@ public interface IEntityValidator
     Task ValidateTaskItemFileCompatibilityAsync(TaskItem taskItem, File file);
     Task EnsureFileOwnerAsync(TaskVault.DataAccess.Entities.File file, User user);
     Task EnsureUserCannotUploadMoreThanMaxFilesAtOnceAsync(UploadFileDto uploadFileDto);
+    Task<TaskItem> GetTaskItemOrThrowAsync(Guid taskItemId);
 }

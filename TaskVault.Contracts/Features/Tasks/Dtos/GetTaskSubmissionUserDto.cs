@@ -6,5 +6,5 @@ public class GetTaskSubmissionUserDto
     
     public required string Email { get; set; }
     public Guid? RootDirectoryId { get; set; }
-    public bool? Approved { get; set; }    
+    public bool? Approved { get; set; }
 }

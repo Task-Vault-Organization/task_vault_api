@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace TaskVault.DataAccess.Entities;
 
@@ -25,6 +26,8 @@ public class User
 
     public Guid? ProfilePhotoId { get; set; }
 
+    public required double TotalFileSize { get; set; }
+
     public string? GoogleProfilePhotoUrl { get; set; } = string.Empty;
 
     public virtual IEnumerable<File>? Files { get; set; }
@@ -37,14 +40,15 @@ public class User
 
     public static User Create(string email, string fullName, bool emailConfirmed, string password, string? googleId)
     {
-        return new User()
+        return new User
         {
             Id = Guid.NewGuid(),
             Email = email,
             Password = password,
             FullName = fullName,
             GoogleId = googleId,
-            EmailConfirmed = emailConfirmed
+            EmailConfirmed = emailConfirmed,
+            TotalFileSize = 0
         };
     }
 }

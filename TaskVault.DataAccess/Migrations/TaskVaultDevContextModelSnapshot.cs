@@ -49,15 +49,13 @@ namespace TaskVault.DataAccess.Migrations
 
             modelBuilder.Entity("TaskVault.DataAccess.Entities.CustomFileCategory", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("ModelId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")
@@ -163,6 +161,9 @@ namespace TaskVault.DataAccess.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("Legacy")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
@@ -402,6 +403,10 @@ namespace TaskVault.DataAccess.Migrations
                     b.Property<bool?>("Approved")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("DissaproveComment")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("SubmittedAt")
                         .HasColumnType("TEXT");
 
@@ -435,6 +440,9 @@ namespace TaskVault.DataAccess.Migrations
 
                     b.Property<Guid>("FileId")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool?>("AiApproved")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("TaskSubmissionId", "TaskItemId", "FileId");
 
@@ -509,6 +517,9 @@ namespace TaskVault.DataAccess.Migrations
 
                     b.Property<Guid>("RootDirectoryId")
                         .HasColumnType("TEXT");
+
+                    b.Property<double>("TotalFileSize")
+                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 

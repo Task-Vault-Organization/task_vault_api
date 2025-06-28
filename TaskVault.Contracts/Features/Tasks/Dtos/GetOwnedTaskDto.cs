@@ -1,4 +1,5 @@
-﻿using TaskStatus = TaskVault.DataAccess.Entities.TaskStatus;
+﻿using TaskVault.Contracts.Shared.Dtos;
+using TaskStatus = TaskVault.DataAccess.Entities.TaskStatus;
 
 namespace TaskVault.Contracts.Features.Tasks.Dtos;
 
@@ -11,6 +12,8 @@ public class GetOwnedTaskDto
     public required string Description { get; set; }
     
     public required Guid OwnerId { get; set; }
+    
+    public GetUserDto? Owner { get; set; }
     
     public required DateTime CreatedAt { get; set; }
     

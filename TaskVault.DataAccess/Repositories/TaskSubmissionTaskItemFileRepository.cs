@@ -9,8 +9,10 @@ namespace TaskVault.DataAccess.Repositories;
 
 public class TaskSubmissionTaskItemFileRepository : Repository<TaskSubmissionTaskItemFile>, ITaskSubmissionTaskItemFileRepository
 {
+    private readonly TaskVaultDevContext _context;
     public TaskSubmissionTaskItemFileRepository(TaskVaultDevContext context, ILogger<Repository<TaskSubmissionTaskItemFile>> logger) : base(context, logger)
     {
+        _context = context;
     }
 
     public override async Task<IEnumerable<TaskSubmissionTaskItemFile>> FindAsync(Expression<Func<TaskSubmissionTaskItemFile, bool>> predicate)
@@ -27,5 +29,12 @@ public class TaskSubmissionTaskItemFileRepository : Repository<TaskSubmissionTas
             Logger.LogError(ex, "Error retrieving all TaskSubmissionTaskItemFileComments");
             throw;
         }
+    }
+    
+    public async Task<TaskSubmissionTaskItemFile?> GetByIdWithFileAsync(Guid id)
+    {
+        return await _context.TaskSubmissionTaskItemFiles
+            .Include(f => f.File)
+            .FirstOrDefaultAsync(f => f.FileId == id);
     }
 }
